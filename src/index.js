@@ -80,8 +80,8 @@ const initDatabase = () => {
 // List of news sources
 const NEWS_SOURCES = [
   { url: 'https://www.ynet.co.il/Integration/StoryRss2.xml', name: 'Ynet' },
-  { url: 'https://rss.walla.co.il/feed/1', name: 'Walla News' },
-  { url: 'https://www.jpost.com/rss/rssfeedsfrontpage.aspx', name: 'Jerusalem Post' }
+  { url: 'https://rcs.mako.co.il/rss/news-military.xml?Partner=interlink', name: 'Mako Military' },
+  { url: 'https://rcs.mako.co.il/rss/news-law.xml?Partner=interlink', name: 'Mako Law' }
 ];
 
 // List of politicians to detect in content
