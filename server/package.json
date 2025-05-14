@@ -7,7 +7,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "setup": "node -e \"require('fs').existsSync('./news.db') || require('fs').writeFileSync('./news.db', '')\"",
-    "clean": "node -e \"require('fs').existsSync('./news.db') && require('fs').unlinkSync('./news.db')\""
+    "clean": "node -e \"require('fs').existsSync('./news.db') && require('fs').unlinkSync('./news.db')\"",
+    "test-rss": "node -e \"const Parser = require('rss-parser'); const parser = new Parser({ headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' } }); Promise.all(['https://www.ynet.co.il/Integration/StoryRss2.xml', 'https://rcs.mako.co.il/rss/news-military.xml?Partner=interlink', 'https://rcs.mako.co.il/rss/news-law.xml?Partner=interlink'].map(url => parser.parseURL(url).then(feed => console.log(`Successfully fetched ${feed.items.length} items from ${url}`)).catch(err => console.error(`Error with ${url}:`, err)))).then(() => console.log('Test complete'))\""
   },
   "dependencies": {
     "cors": "^2.8.5",
