@@ -28,6 +28,9 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Serve politician images as static files
+app.use('/politicians/images', express.static(path.join(__dirname, '../data/politicians/images')));
+
 // Initialize RSS parser
 const parser = new Parser({
   customFields: {
@@ -230,7 +233,9 @@ app.get('/', (req, res) => {
     endpoints: [
       '/api/news - Get all news articles with pagination',
       '/api/news/:id - Get a specific news article',
-      '/api/refresh - Trigger a manual feed update'
+      '/api/refresh - Trigger a manual feed update',
+      '/api/clear - Clear all news articles from the database',
+      '/api/politicians - Get list of politicians'
     ]
   });
 });
@@ -362,6 +367,32 @@ app.get('/api/news/:id', (req, res) => {
       res.json(article);
     }
   );
+});
+
+// Get all politicians
+app.get('/api/politicians', (req, res) => {
+  try {
+    const politiciansPath = path.join(__dirname, '../data/politicians/politicians.json');
+    if (!fs.existsSync(politiciansPath)) {
+      return res.status(404).json({ error: 'Politicians data not found' });
+    }
+    
+    const politiciansData = JSON.parse(fs.readFileSync(politiciansPath, 'utf8'));
+    
+    // Add image URLs for the frontend to use
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const politiciansWithImageUrls = politiciansData.map(politician => {
+      if (politician.image) {
+        politician.image_url = `${baseUrl}/politicians/images/${encodeURIComponent(politician.image)}`;
+      }
+      return politician;
+    });
+    
+    res.json(politiciansWithImageUrls);
+  } catch (error) {
+    console.error('Error fetching politicians data:', error);
+    res.status(500).json({ error: 'Failed to fetch politicians data' });
+  }
 });
 
 // Start the server
