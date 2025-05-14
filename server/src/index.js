@@ -205,6 +205,31 @@ app.get('/', (req, res) => {
   });
 });
 
+// Special temporary route to clear database (delete this after use)
+app.get('/clear-all-now', (req, res) => {
+  console.log('Emergency clearing all news articles...');
+  
+  // Delete from politician_mentions first (foreign key constraint)
+  db.run('DELETE FROM politician_mentions', (err) => {
+    if (err) {
+      console.error('Error clearing politician mentions:', err);
+      return res.status(500).json({ error: 'Failed to clear database' });
+    }
+    
+    // Then delete from articles
+    db.run('DELETE FROM articles', (err) => {
+      if (err) {
+        console.error('Error clearing articles:', err);
+        return res.status(500).json({ error: 'Failed to clear database' });
+      }
+      
+      updateFeeds().catch(err => console.error('Error refreshing feeds:', err));
+      
+      res.json({ message: 'All news articles cleared successfully and refresh triggered' });
+    });
+  });
+});
+
 // Manual trigger to update feeds
 app.post('/api/refresh', async (req, res) => {
   try {
