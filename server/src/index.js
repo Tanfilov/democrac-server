@@ -199,7 +199,8 @@ app.get('/', (req, res) => {
     endpoints: [
       '/api/news - Get all news articles with pagination',
       '/api/news/:id - Get a specific news article',
-      '/api/refresh - Trigger a manual feed update'
+      '/api/refresh - Trigger a manual feed update',
+      '/api/clear - Clear all news articles from the database'
     ]
   });
 });
@@ -217,6 +218,34 @@ app.post('/api/refresh', async (req, res) => {
   } catch (error) {
     console.error('Error triggering feed update:', error);
     res.status(500).json({ error: 'Failed to trigger feed update' });
+  }
+});
+
+// Clear all news articles
+app.post('/api/clear', async (req, res) => {
+  try {
+    console.log('Clearing all news articles...');
+    
+    // Delete from politician_mentions first (foreign key constraint)
+    db.run('DELETE FROM politician_mentions', (err) => {
+      if (err) {
+        console.error('Error clearing politician mentions:', err);
+        return res.status(500).json({ error: 'Failed to clear database' });
+      }
+      
+      // Then delete from articles
+      db.run('DELETE FROM articles', (err) => {
+        if (err) {
+          console.error('Error clearing articles:', err);
+          return res.status(500).json({ error: 'Failed to clear database' });
+        }
+        
+        res.json({ message: 'All news articles cleared successfully' });
+      });
+    });
+  } catch (error) {
+    console.error('Error clearing database:', error);
+    res.status(500).json({ error: 'Failed to clear database' });
   }
 });
 
