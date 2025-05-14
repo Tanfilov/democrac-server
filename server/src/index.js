@@ -122,6 +122,24 @@ const extractImageUrl = (item) => {
   return null;
 };
 
+// Extract clean description text from RSS item
+const extractCleanDescription = (item, source) => {
+  let content = item.content || item.description || '';
+  
+  // For Ynet feeds, extract only the text part after the image HTML
+  if (source === 'Ynet' && content.includes('</div>')) {
+    // Extract the text after the closing div that contains the image
+    const matches = content.match(/<\/div>(.*?)$/s);
+    if (matches && matches[1]) {
+      content = matches[1].trim();
+    }
+  }
+  
+  // Convert any remaining HTML to plain text
+  const plainContent = htmlToText(content, { wordwrap: false });
+  return plainContent.length > 150 ? plainContent.substring(0, 147) + '...' : plainContent;
+};
+
 // Find politician mentions in text
 const findPoliticianMentions = (text) => {
   return POLITICIANS.filter(politician => {
@@ -173,9 +191,8 @@ const updateFeeds = async () => {
         
         for (const item of feed.items) {
           const content = item.content || item.description || '';
-          // Convert HTML content to plain text
-          const plainContent = htmlToText(content, { wordwrap: false });
-          const description = plainContent.length > 150 ? plainContent.substring(0, 147) + '...' : plainContent;
+          // Get a clean description
+          const description = extractCleanDescription(item, source.name);
           
           const article = {
             title: item.title || '',
