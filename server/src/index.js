@@ -339,6 +339,7 @@ initDatabase()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`API ready for connections - RSS feeds will be cleared and refreshed`);
       
       // Clear all existing articles on startup
       console.log('Clearing all existing articles...');
