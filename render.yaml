@@ -6,3 +6,10 @@ services:
     branch: main
     buildCommand: npm install
     startCommand: npm start
+    envVars:
+      - key: UPDATE_INTERVAL
+        value: 300000
+      - key: CORS_ORIGIN
+        value: "*"
+      - key: DB_PATH
+        value: ./data/news.db
