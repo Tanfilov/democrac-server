@@ -1,75 +1,61 @@
-# Democra.c Server
+# Democra.c News Server
 
-A Node.js server that fetches RSS feeds from Israeli news sources, processes them to detect politician mentions, and serves them via a REST API for the Democra.c mobile app.
+RSS feed aggregator server for the Democra.c app.
 
 ## Features
 
-- Fetches news from multiple Israeli sources (Ynet, Walla News, Jerusalem Post)
-- Automatically detects mentions of Israeli politicians
-- Stores articles in SQLite database
-- Provides REST API endpoints for the mobile app
-- Updates feeds automatically every 5 minutes
+- Collects news from multiple Israeli news sources
+- Detects mentions of politicians in news articles
+- Provides a REST API for accessing the news feed
+- SQLite database for persistent storage
 
-## Setup Instructions
+## Local Development
 
-### Local Development
-
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd democrac-server
+1. Install dependencies:
    ```
-
-2. Install dependencies:
-   ```bash
    npm install
    ```
 
-3. Set up the database:
-   ```bash
-   npm run setup
-   ```
+2. Create `.env` file (see `.env.example` for reference)
 
-4. Start the development server:
-   ```bash
+3. Start the development server:
+   ```
    npm run dev
    ```
 
-The server will run on http://localhost:3000 by default.
-
-### Deployment to Render
-
-1. Push this repository to GitHub
-
-2. On Render, create a new Web Service
-   - Connect to your GitHub repository
-   - Select Node.js as runtime
-   - Use these settings:
-     - Build Command: `npm install`
-     - Start Command: `npm start`
-   - Add environment variables from `.env.example`
-
 ## API Endpoints
 
-- `GET /` - Shows API information and available endpoints
-- `GET /api/news` - Get paginated news articles
-- `GET /api/news/:id` - Get a specific news article by ID
-- `POST /api/refresh` - Manually trigger a feed update
+- `GET /` - API documentation
+- `GET /api/news` - Get all news articles with pagination
+- `GET /api/news/:id` - Get a specific news article
+- `POST /api/refresh` - Trigger a manual feed update
 
-### Pagination
+## Deployment on Render
 
-The `/api/news` endpoint supports pagination with these query parameters:
-- `page`: Page number (default: 1)
-- `limit`: Number of items per page (default: 20)
+This repository is configured to deploy automatically on Render.com with the following settings:
 
-Example: `/api/news?page=2&limit=10`
+1. Service Type: Web Service
+2. Environment: Node.js
+3. Build Command: `npm install`
+4. Start Command: `npm start`
 
-## Environment Variables
+### Environment Variables
 
-- `PORT` - Server port (default: 3000)
-- `DB_PATH` - Path to SQLite database file (default: ./data/news.db)
-- `UPDATE_INTERVAL` - Feed update interval in milliseconds (default: 300000)
-- `CORS_ORIGIN` - CORS configuration (default: *)
+Make sure to configure the following environment variables on Render:
+
+- `PORT`: The port the server will run on (Render sets this automatically)
+- `UPDATE_INTERVAL`: Interval in milliseconds between feed updates (default: 300000 - 5 minutes)
+- `CORS_ORIGIN`: CORS origins to allow (use "*" to allow all origins)
+- `DB_PATH`: Path to the SQLite database (default: ./data/news.db)
+
+### Troubleshooting Deployment Issues
+
+If you encounter deployment problems:
+
+1. Verify your package.json has valid JSON syntax
+2. Ensure the project structure is correct (index.js in the root or properly referenced in package.json)
+3. Check that all required dependencies are listed in package.json
+4. Confirm environment variables are properly set
 
 ## License
 
