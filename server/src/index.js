@@ -340,11 +340,27 @@ initDatabase()
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`);
       
-      // Initial feed update
-      updateFeeds();
-      
-      // Schedule regular updates
-      setInterval(updateFeeds, UPDATE_INTERVAL);
+      // Clear all existing articles on startup
+      console.log('Clearing all existing articles...');
+      db.run('DELETE FROM politician_mentions', (err) => {
+        if (err) {
+          console.error('Error clearing politician mentions:', err);
+        } else {
+          db.run('DELETE FROM articles', (err) => {
+            if (err) {
+              console.error('Error clearing articles:', err);
+            } else {
+              console.log('All articles cleared successfully.');
+              
+              // Initial feed update after clearing
+              updateFeeds();
+              
+              // Schedule regular updates
+              setInterval(updateFeeds, UPDATE_INTERVAL);
+            }
+          });
+        }
+      });
     });
   })
   .catch(err => {
