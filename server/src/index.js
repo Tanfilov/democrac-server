@@ -8,6 +8,7 @@ const cors = require('cors');
 const path = require('path');
 const { format } = require('date-fns');
 const fs = require('fs');
+const { htmlToText } = require('html-to-text');
 
 // Initialize Express app
 const app = express();
@@ -161,7 +162,9 @@ const updateFeeds = async () => {
         
         for (const item of feed.items) {
           const content = item.content || item.description || '';
-          const description = content.length > 150 ? content.substring(0, 147) + '...' : content;
+          // Convert HTML content to plain text
+          const plainContent = htmlToText(content, { wordwrap: false });
+          const description = plainContent.length > 150 ? plainContent.substring(0, 147) + '...' : plainContent;
           
           const article = {
             title: item.title || '',

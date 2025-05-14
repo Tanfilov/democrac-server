@@ -8,6 +8,7 @@ const cors = require('cors');
 const path = require('path');
 const { format } = require('date-fns');
 const fs = require('fs');
+const { htmlToText } = require('html-to-text');
 
 // Initialize Express app
 const app = express();
@@ -161,7 +162,9 @@ const updateFeeds = async () => {
         
         for (const item of feed.items) {
           const content = item.content || item.description || '';
-          const description = content.length > 150 ? content.substring(0, 147) + '...' : content;
+          // Convert HTML content to plain text
+          const plainContent = htmlToText(content, { wordwrap: false });
+          const description = plainContent.length > 150 ? plainContent.substring(0, 147) + '...' : plainContent;
           
           const article = {
             title: item.title || '',
@@ -217,6 +220,34 @@ app.post('/api/refresh', async (req, res) => {
   } catch (error) {
     console.error('Error triggering feed update:', error);
     res.status(500).json({ error: 'Failed to trigger feed update' });
+  }
+});
+
+// Clear all news articles
+app.post('/api/clear', async (req, res) => {
+  try {
+    console.log('Clearing all news articles...');
+    
+    // Delete from politician_mentions first (foreign key constraint)
+    db.run('DELETE FROM politician_mentions', (err) => {
+      if (err) {
+        console.error('Error clearing politician mentions:', err);
+        return res.status(500).json({ error: 'Failed to clear database' });
+      }
+      
+      // Then delete from articles
+      db.run('DELETE FROM articles', (err) => {
+        if (err) {
+          console.error('Error clearing articles:', err);
+          return res.status(500).json({ error: 'Failed to clear database' });
+        }
+        
+        res.json({ message: 'All news articles cleared successfully' });
+      });
+    });
+  } catch (error) {
+    console.error('Error clearing database:', error);
+    res.status(500).json({ error: 'Failed to clear database' });
   }
 });
 
