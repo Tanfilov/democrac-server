@@ -102,13 +102,21 @@ const POLITICIANS = [
 
 // Extract image URL from RSS item
 const extractImageUrl = (item) => {
+  // First try to get from media:content (for feeds that use this format)
   if (item['media:content'] && item['media:content']['$'] && item['media:content']['$'].url) {
     return item['media:content']['$'].url;
   }
   
+  // Next, try to find image URL in the content field (which is used by Ynet)
+  if (item.content) {
+    const contentMatch = item.content.match(/<img[^>]+src=["']([^"'>]+)["']/);
+    if (contentMatch) return contentMatch[1];
+  }
+  
+  // Lastly, try to find image URL in the description field
   if (item.description) {
-    const match = item.description.match(/<img[^>]+src="([^">]+)"/);
-    if (match) return match[1];
+    const descMatch = item.description.match(/<img[^>]+src=["']([^"'>]+)["']/);
+    if (descMatch) return descMatch[1];
   }
   
   return null;
