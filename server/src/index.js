@@ -321,8 +321,13 @@ const summarizeArticle = async (articleContent, title) => {
       politiciansList = politiciansData.map(p => p.Name);
     }
     
+    // Extract the first several paragraphs (up to 5) for summarization
+    // This ensures we're not just using the description
+    const paragraphs = articleContent.split(/\n+/).filter(p => p.trim().length > 20);
+    const contentToSummarize = paragraphs.slice(0, 5).join('\n\n');
+    
     // Estimate tokens (rough estimate: 4 chars per token)
-    const estimatedPromptTokens = Math.ceil((title.length + articleContent.length) / 4) + 500; // Add 500 for the prompt text
+    const estimatedPromptTokens = Math.ceil((title.length + contentToSummarize.length) / 4) + 500; // Add 500 for the prompt text
     
     // Create a promise that will be resolved when the API call completes
     return new Promise((resolve) => {
@@ -335,29 +340,39 @@ const summarizeArticle = async (articleContent, title) => {
             
             Here is a news article in Hebrew:
             Title: ${title}
-            Content: ${articleContent}
+            Content: ${contentToSummarize}
             
+            IMPORTANT INSTRUCTIONS:
             1. Write a newspaper-style summary of this article in 3-5 sentences in Hebrew.
-            2. Your summary MUST be in Hebrew, matching the language of the original article.
-            3. Be factual and objective.
-            4. After your summary, list any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
-            5. Format your whole response as simple text. DO NOT use any JSON format.
+            2. Your summary MUST be original - do NOT simply copy the first paragraph or description.
+            3. Read and analyze the full content provided to create a comprehensive summary.
+            4. Be factual and objective.
+            5. In a SEPARATE section at the end, list any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
+            6. Format your response as:
+            
+            SUMMARY: 
+            [your 3-5 sentence summary here]
+            
+            POLITICIANS MENTIONED: 
+            [list of politicians, separated by commas]
             `
             : `
             You are a professional newspaper editor specializing in creating concise, informative summaries.
             
             Here is a news article:
             Title: ${title}
-            Content: ${articleContent}
+            Content: ${contentToSummarize}
             
+            IMPORTANT INSTRUCTIONS:
             1. Write a newspaper-style summary of this article in 3-5 sentences.
-            2. Your summary MUST be in English, matching the language of the original article.
-            3. Be factual and objective.
-            4. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
+            2. Your summary MUST be original - do NOT simply copy the first paragraph or description.
+            3. Read and analyze the full content provided to create a comprehensive summary.
+            4. Be factual and objective.
+            5. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
             
             Format your response as JSON:
             {
-              "summary": "Your summary here...",
+              "summary": "Your original 3-5 sentence summary here...",
               "mentionedPoliticians": ["Politician Name 1", "Politician Name 2", ...]
             }
             `;
@@ -382,21 +397,29 @@ const summarizeArticle = async (articleContent, title) => {
             // For Hebrew, parse the plain text response into our JSON format
             const response = completion.choices[0].message.content;
             
-            // Extract summary (everything before the politicians list)
-            const summaryMatch = response.split(/(?:Israeli )?politicians mentioned:|פוליטיקאים מוזכרים:/i)[0].trim();
+            // Extract summary (between SUMMARY: and POLITICIANS MENTIONED:)
+            const summaryRegex = /SUMMARY:\s*([\s\S]*?)(?:POLITICIANS MENTIONED:|$)/i;
+            const summaryMatch = response.match(summaryRegex);
+            const summary = summaryMatch ? summaryMatch[1].trim() : response.split(/POLITICIANS MENTIONED:/i)[0].trim();
             
-            // Extract politicians (if any)
-            const politiciansText = response.split(/(?:Israeli )?politicians mentioned:|פוליטיקאים מוזכרים:/i)[1];
+            // Extract politicians list
+            const politiciansRegex = /POLITICIANS MENTIONED:\s*([\s\S]*)/i;
+            const politiciansMatch = response.match(politiciansRegex);
+            const politiciansText = politiciansMatch ? politiciansMatch[1].trim() : '';
             
-            const politicianMatches = politiciansText
-              ? politiciansList.filter(politician => 
-                  politiciansText.includes(politician)
-                )
+            // Parse the politicians from the comma-separated list
+            const mentionedPoliticians = politiciansText
+              ? politiciansText.split(/,|\n/).map(p => p.trim()).filter(p => p.length > 0)
               : [];
+            
+            // If that didn't work, try to match politicians from the list
+            const filteredPoliticians = mentionedPoliticians.length > 0 
+              ? mentionedPoliticians 
+              : politiciansList.filter(p => politiciansText.includes(p));
               
             result = {
-              summary: summaryMatch,
-              mentionedPoliticians: politicianMatches
+              summary: summary,
+              mentionedPoliticians: filteredPoliticians
             };
           } else {
             // For English, just parse the JSON response
