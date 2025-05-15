@@ -101,7 +101,7 @@ async function loadPoliticians() {
     const politiciansPath = path.join(__dirname, 'data/politicians/politicians.json');
     if (fs.existsSync(politiciansPath)) {
       const politiciansData = JSON.parse(fs.readFileSync(politiciansPath, 'utf8'));
-      return politiciansData.map(p => p.Name);
+      return politiciansData.map(p => p.name);
     }
     return [];
   } catch (error) {

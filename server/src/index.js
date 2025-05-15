@@ -318,7 +318,7 @@ const summarizeArticle = async (articleContent, title) => {
     
     if (fs.existsSync(politiciansPath)) {
       const politiciansData = JSON.parse(fs.readFileSync(politiciansPath, 'utf8'));
-      politiciansList = politiciansData.map(p => p.Name);
+      politiciansList = politiciansData.map(p => p.name);
     }
     
     // Extract more paragraphs (up to 8) for summarization to get more content
