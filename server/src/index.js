@@ -328,42 +328,115 @@ const summarizeArticle = async (articleContent, title) => {
     return new Promise((resolve) => {
       groqRateLimit.addToQueue(async () => {
         try {
-          const prompt = `
-          You are a professional newspaper editor specializing in creating concise, informative summaries.
+          // For Hebrew content, use a simpler prompt that asks for plaintext first, then we'll format it as JSON
+          const prompt = isHebrew
+            ? `
+            You are a professional newspaper editor specializing in creating concise, informative summaries.
+            
+            Here is a news article in Hebrew:
+            Title: ${title}
+            Content: ${articleContent}
+            
+            1. Write a newspaper-style summary of this article in 3-5 sentences in Hebrew.
+            2. Your summary MUST be in Hebrew, matching the language of the original article.
+            3. Be factual and objective.
+            4. After your summary, list any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
+            5. Format your whole response as simple text. DO NOT use any JSON format.
+            `
+            : `
+            You are a professional newspaper editor specializing in creating concise, informative summaries.
+            
+            Here is a news article:
+            Title: ${title}
+            Content: ${articleContent}
+            
+            1. Write a newspaper-style summary of this article in 3-5 sentences.
+            2. Your summary MUST be in English, matching the language of the original article.
+            3. Be factual and objective.
+            4. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
+            
+            Format your response as JSON:
+            {
+              "summary": "Your summary here...",
+              "mentionedPoliticians": ["Politician Name 1", "Politician Name 2", ...]
+            }
+            `;
           
-          Here is a news article:
-          Title: ${title}
-          Content: ${articleContent}
-          
-          1. Write a newspaper-style summary of this article in 3-5 sentences.
-          2. Your summary MUST be in the ${isHebrew ? 'Hebrew' : 'English'} language, matching the language of the original article.
-          3. Be factual and objective.
-          4. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
-          
-          Format your response as JSON:
-          {
-            "summary": "Your summary here...",
-            "mentionedPoliticians": ["Politician Name 1", "Politician Name 2", ...]
-          }
-          `;
+          const responseFormat = isHebrew ? { type: 'text' } : { type: 'json_object' };
           
           const completion = await groq.chat.completions.create({
             messages: [{ role: 'user', content: prompt }],
             model: 'llama3-8b-8192',
             temperature: 0.3,
             max_tokens: 1000,
-            response_format: { type: 'json_object' }
+            response_format: responseFormat
           });
           
           // Register the actual tokens used
           const tokensUsed = completion.usage.total_tokens;
           groqRateLimit.registerRequest(tokensUsed);
           
-          const result = JSON.parse(completion.choices[0].message.content);
+          let result;
+          
+          if (isHebrew) {
+            // For Hebrew, parse the plain text response into our JSON format
+            const response = completion.choices[0].message.content;
+            
+            // Extract summary (everything before the politicians list)
+            const summaryMatch = response.split(/(?:Israeli )?politicians mentioned:|פוליטיקאים מוזכרים:/i)[0].trim();
+            
+            // Extract politicians (if any)
+            const politiciansText = response.split(/(?:Israeli )?politicians mentioned:|פוליטיקאים מוזכרים:/i)[1];
+            
+            const politicianMatches = politiciansText
+              ? politiciansList.filter(politician => 
+                  politiciansText.includes(politician)
+                )
+              : [];
+              
+            result = {
+              summary: summaryMatch,
+              mentionedPoliticians: politicianMatches
+            };
+          } else {
+            // For English, just parse the JSON response
+            result = JSON.parse(completion.choices[0].message.content);
+          }
+          
           resolve(result);
         } catch (error) {
           console.error('Error summarizing article with Groq:', error);
-          resolve({ summary: 'Error during summarization', mentionedPoliticians: [] });
+          // If we get a JSON validation error, try to extract the summary from the failed generation
+          if (error.code === 'json_validate_failed' && error.failed_generation) {
+            try {
+              // Try to salvage the summary from the failed JSON
+              const failedText = error.failed_generation;
+              
+              // Extract summary using regex - look for text between "summary": and the next comma or closing brace
+              const summaryMatch = failedText.match(/"summary":\s*"([^"]+)"/);
+              const summary = summaryMatch ? summaryMatch[1] : 'Error parsing summary';
+              
+              // Extract politicians using regex - look for array after "mentionedPoliticians":
+              const politiciansMatch = failedText.match(/"mentionedPoliticians":\s*\[(.*?)\]/);
+              const politiciansText = politiciansMatch ? politiciansMatch[1] : '';
+              
+              // Parse the politicians from the array text
+              const mentionedPoliticians = politiciansText
+                .split(',')
+                .map(p => p.trim().replace(/"/g, ''))
+                .filter(p => p.length > 0);
+              
+              resolve({
+                summary,
+                mentionedPoliticians
+              });
+            } catch (parseError) {
+              console.error('Error parsing failed generation:', parseError);
+              resolve({ summary: 'Error during summarization', mentionedPoliticians: [] });
+            }
+          } else {
+            resolve({ summary: 'Error during summarization', mentionedPoliticians: [] });
+          }
         }
       });
     });
