@@ -927,6 +927,17 @@ app.get('/api/news', (req, res) => {
     // Filter for summarized articles if requested and if summary column exists
     if (onlySummarized && summaryExists.count > 0) {
       whereClause.push(`a.summary IS NOT NULL AND a.summary != ''`);
+    } else if (onlySummarized && summaryExists.count === 0) {
+      // If summary column doesn't exist but onlySummarized is requested,
+      // return empty result set instead of error
+      return res.json({
+        news: [],
+        pagination: {
+          page,
+          pages: 0,
+          total: 0
+        }
+      });
     }
     
     // Filter out articles with empty descriptions or fewer than 10 words
@@ -944,56 +955,62 @@ app.get('/api/news', (req, res) => {
       LIMIT ? OFFSET ?
     `;
     
-    db.all(
-      query,
-      [limit, offset],
-      (err, rows) => {
-        if (err) {
-          console.error('Database error:', err);
-          return res.status(500).json({ error: 'Database error' });
-        }
-        
-        // Get total count for pagination
-        let countQuery = 'SELECT COUNT(*) as count FROM articles';
-        
-        // Add the same filters to the count query
-        if (whereClause.length > 0) {
-          countQuery += ` WHERE ${whereClause.join(' AND ')}`;
-        }
-        
-        db.get(countQuery, (err, countRow) => {
+    try {
+      db.all(
+        query,
+        [limit, offset],
+        (err, rows) => {
           if (err) {
-            console.error('Count error:', err);
+            console.error('Database error:', err);
+            console.error('Query that failed:', query);
             return res.status(500).json({ error: 'Database error' });
           }
           
-          const total = countRow.count || 0;
-          const totalPages = Math.ceil(total / limit);
+          // Get total count for pagination
+          let countQuery = 'SELECT COUNT(*) as count FROM articles';
           
-          // Format the response
-          const articles = rows.map(row => {
-            // Deduplicate politician names
-            const mentionedPoliticians = row.mentionedPoliticians 
-              ? [...new Set(row.mentionedPoliticians.split(','))]
-              : [];
-              
-            return {
-              ...row,
-              mentionedPoliticians
-            };
-          });
+          // Add the same filters to the count query
+          if (whereClause.length > 0) {
+            countQuery += ` WHERE ${whereClause.join(' AND ')}`;
+          }
           
-          res.json({
-            news: articles,
-            pagination: {
-              page,
-              pages: totalPages,
-              total
+          db.get(countQuery, (err, countRow) => {
+            if (err) {
+              console.error('Count error:', err);
+              return res.status(500).json({ error: 'Database error' });
             }
+            
+            const total = countRow.count || 0;
+            const totalPages = Math.ceil(total / limit);
+            
+            // Format the response
+            const articles = rows.map(row => {
+              // Deduplicate politician names
+              const mentionedPoliticians = row.mentionedPoliticians 
+                ? [...new Set(row.mentionedPoliticians.split(','))]
+                : [];
+                
+              return {
+                ...row,
+                mentionedPoliticians
+              };
+            });
+            
+            res.json({
+              news: articles,
+              pagination: {
+                page,
+                pages: totalPages,
+                total
+              }
+            });
           });
-        });
-      }
-    );
+        }
+      );
+    } catch (error) {
+      console.error('Unexpected error in /api/news:', error);
+      return res.status(500).json({ error: 'Server error', details: error.message });
+    }
   });
 });
 
