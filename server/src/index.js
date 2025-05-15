@@ -70,8 +70,15 @@ const parser = new Parser({
     item: ['media:content', 'description', 'pubDate', 'content']
   },
   headers: {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-  }
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml, */*',
+    'Accept-Language': 'en-US,en;q=0.9,he;q=0.8',
+    'Referer': 'https://www.mako.co.il/',
+    'Cache-Control': 'no-cache'
+  },
+  timeout: 10000, // Increase timeout to 10 seconds
+  defaultRSS: 2.0,
+  maxRedirects: 5
 });
 
 // Initialize SQLite database
@@ -147,8 +154,16 @@ const initDatabase = () => {
 // List of news sources
 const NEWS_SOURCES = [
   { url: 'https://www.ynet.co.il/Integration/StoryRss2.xml', name: 'Ynet' },
-  { url: 'https://rcs.mako.co.il/rss/news-military.xml?Partner=interlink', name: 'Mako Military' },
-  { url: 'https://rcs.mako.co.il/rss/news-law.xml?Partner=interlink', name: 'Mako Law' }
+  { 
+    url: 'https://rcs.mako.co.il/rss/news-military.xml?Partner=interlink', 
+    name: 'Mako Military',
+    alternativeUrl: 'https://www.mako.co.il/news-military?partner=rss'
+  },
+  { 
+    url: 'https://rcs.mako.co.il/rss/news-law.xml?Partner=interlink', 
+    name: 'Mako Law',
+    alternativeUrl: 'https://www.mako.co.il/news-law?partner=rss' 
+  }
 ];
 
 // Load politicians from JSON file
@@ -900,6 +915,97 @@ const processBatchForPoliticianDetection = async (articleIds, maxBatchSize = 5) 
   }
 };
 
+// Fetch RSS feed with fallback support
+const fetchFeed = async (source) => {
+  // Try with the primary URL first
+  try {
+    console.log(`Attempting to fetch feed from ${source.name} (${source.url})...`);
+    const feed = await parser.parseURL(source.url);
+    console.log(`Successfully fetched feed from ${source.name} with ${feed.items.length} items`);
+    return feed;
+  } catch (primaryError) {
+    console.log(`Primary URL failed for ${source.name}: ${primaryError.message}`);
+    
+    // If there's an alternative URL, try that next
+    if (source.alternativeUrl) {
+      try {
+        console.log(`Trying alternative URL for ${source.name}: ${source.alternativeUrl}`);
+        const feed = await parser.parseURL(source.alternativeUrl);
+        console.log(`Successfully fetched feed from alternative URL for ${source.name} with ${feed.items.length} items`);
+        return feed;
+      } catch (alternativeError) {
+        console.log(`Alternative URL also failed for ${source.name}: ${alternativeError.message}`);
+      }
+    }
+    
+    // If both URLs failed or there was no alternative, try the axios fallback
+    console.log(`Trying axios fallback method for ${source.name}...`);
+    try {
+      // First try the primary URL with axios
+      const url = source.url;
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml, */*',
+          'Accept-Language': 'en-US,en;q=0.9,he;q=0.8',
+          'Referer': 'https://www.mako.co.il/',
+          'Origin': 'https://www.mako.co.il'
+        },
+        timeout: 15000,
+        maxRedirects: 5
+      });
+      
+      // Create a simulated feed object
+      const xmlData = response.data;
+      const cheerio = require('cheerio');
+      const $ = cheerio.load(xmlData, { xmlMode: true });
+      
+      const items = [];
+      
+      $('item').each((i, item) => {
+        const $item = $(item);
+        
+        const extractText = (selector) => {
+          const element = $item.find(selector);
+          return element.length ? element.text() : '';
+        };
+        
+        items.push({
+          title: extractText('title'),
+          link: extractText('link'),
+          description: extractText('description'),
+          content: extractText('description'),
+          pubDate: extractText('pubDate'),
+          guid: extractText('guid') || extractText('link')
+        });
+      });
+      
+      const feed = {
+        items,
+        title: $('channel > title').text(),
+        description: $('channel > description').text(),
+        link: $('channel > link').text()
+      };
+      
+      console.log(`Successfully parsed feed with axios for ${source.name} with ${items.length} items`);
+      return feed;
+      
+    } catch (axiosError) {
+      console.error(`All methods failed for ${source.name}:`, axiosError.message);
+      
+      // Return an empty feed object instead of throwing
+      // This way other sources can still be processed
+      console.log(`Returning empty feed for ${source.name} to avoid halting the process`);
+      return { 
+        items: [],
+        title: source.name,
+        description: '',
+        link: source.url
+      };
+    }
+  }
+};
+
 // Fetch and process RSS feeds
 const updateFeeds = async () => {
   console.log('Fetching RSS feeds...');
@@ -907,58 +1013,80 @@ const updateFeeds = async () => {
   try {
     // Track articles for politician detection
     const articlesToProcess = [];
+    let totalArticlesProcessed = 0;
     
+    // Process each source sequentially to avoid overwhelming the system
     for (const source of NEWS_SOURCES) {
       try {
-        const feed = await parser.parseURL(source.url);
+        // Fetch feed with our enhanced method
+        const feed = await fetchFeed(source);
         
+        if (!feed || !feed.items || feed.items.length === 0) {
+          console.log(`No items found in feed for ${source.name}, skipping`);
+          continue;
+        }
+        
+        let articlesProcessed = 0;
+        
+        // Process each item in the feed
         for (const item of feed.items) {
-          const content = item.content || item.description || '';
-          // Get a clean description
-          const description = extractCleanDescription(item, source.name);
-          
-          // Skip items with empty descriptions or descriptions with fewer than 10 words
-          if (!description || description.trim() === '' || description.trim().split(/\s+/).length < 10) {
-            console.log(`Skipping item with insufficient description: "${item.title}"`);
-            continue;
-          }
-          
-          const article = {
-            title: item.title || '',
-            description: description,
-            content: content,
-            link: item.link || '',
-            imageUrl: extractImageUrl(item),
-            source: source.name,
-            publishedAt: item.pubDate ? format(new Date(item.pubDate), 'yyyy-MM-dd HH:mm:ss') : format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
-            guid: item.guid || item.link || Math.random().toString(36).substring(2),
-            summary: '' // Initialize with empty summary
-          };
-          
-          // Initial simple politician detection
-          const mentions = findPoliticianMentions(article.title + ' ' + article.description + ' ' + article.content);
-          const articleId = await insertArticle(article, mentions);
-          
-          // If a new article was inserted, add it to the processing queue for enhanced detection
-          if (articleId) {
-            articlesToProcess.push(articleId);
+          try {
+            const content = item.content || item.description || '';
+            // Get a clean description
+            const description = extractCleanDescription(item, source.name);
+            
+            // Skip items with empty descriptions or descriptions with fewer than 10 words
+            if (!description || description.trim() === '' || description.trim().split(/\s+/).length < 10) {
+              console.log(`Skipping item with insufficient description: "${item.title}"`);
+              continue;
+            }
+            
+            const article = {
+              title: item.title || '',
+              description: description,
+              content: content,
+              link: item.link || '',
+              imageUrl: extractImageUrl(item),
+              source: source.name,
+              publishedAt: item.pubDate ? format(new Date(item.pubDate), 'yyyy-MM-dd HH:mm:ss') : format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
+              guid: item.guid || item.link || Math.random().toString(36).substring(2),
+              summary: '' // Initialize with empty summary
+            };
+            
+            // Initial simple politician detection
+            const mentions = findPoliticianMentions(article.title + ' ' + article.description + ' ' + article.content);
+            const articleId = await insertArticle(article, mentions);
+            
+            // If a new article was inserted, add it to the processing queue for enhanced detection
+            if (articleId) {
+              articlesToProcess.push(articleId);
+              articlesProcessed++;
+            }
+          } catch (itemError) {
+            console.error(`Error processing item from ${source.name}:`, itemError.message);
+            continue; // Skip this item but continue with others
           }
         }
         
-        console.log(`Processed ${feed.items.length} items from ${source.name}`);
-      } catch (error) {
-        console.error(`Error processing feed from ${source.name}:`, error);
+        totalArticlesProcessed += articlesProcessed;
+        console.log(`Processed ${articlesProcessed} items from ${source.name}`);
+      } catch (sourceError) {
+        console.error(`Failed to process source ${source.name}:`, sourceError.message);
+        continue; // Skip this source but continue with others
       }
     }
     
-    console.log('RSS feed update completed');
+    console.log(`RSS feed update completed. Total articles processed: ${totalArticlesProcessed}`);
     
     // Process articles for enhanced politician detection
     if (articlesToProcess.length > 0) {
+      console.log(`Scheduling enhanced detection for ${articlesToProcess.length} new articles`);
       processBatchForPoliticianDetection(articlesToProcess);
+    } else {
+      console.log('No new articles to process for enhanced detection');
     }
   } catch (error) {
-    console.error('Error updating feeds:', error);
+    console.error('Unexpected error updating feeds:', error);
   }
 };
 
@@ -990,11 +1118,8 @@ app.post('/api/summarize/:id', async (req, res) => {
       // Get full list of politicians for this article
       const allPoliticians = await new Promise((resolve, reject) => {
         db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(rows ? rows.map(row => row.politicianName) : []);
-          }
+          if (err) reject(err);
+          else resolve(rows ? rows.map(row => row.politicianName) : []);
         });
       });
       
