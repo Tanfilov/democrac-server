@@ -45,7 +45,9 @@ try {
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
-const UPDATE_INTERVAL = parseInt(process.env.UPDATE_INTERVAL || 300000); // Default: 5 minutes
+// Increase the interval to reduce frequency of requests to RSS feeds
+// Default: 60 minutes (from previous 5 minutes)
+const UPDATE_INTERVAL = parseInt(process.env.UPDATE_INTERVAL || 3600000);
 const DB_PATH = process.env.DB_PATH || './data/news.db';
 const AUTO_SUMMARIZE = false; // Temporarily disabled
 
@@ -151,20 +153,30 @@ const initDatabase = () => {
   });
 };
 
-// List of news sources
+// List of news sources with rate limits
 const NEWS_SOURCES = [
-  { url: 'https://www.ynet.co.il/Integration/StoryRss2.xml', name: 'Ynet' },
+  { 
+    url: 'https://www.ynet.co.il/Integration/StoryRss2.xml', 
+    name: 'Ynet',
+    // Default rate limit is gentle
+    minRequestInterval: 15 * 60 * 1000 // 15 minutes between requests
+  },
   { 
     url: 'https://rcs.mako.co.il/rss/news-military.xml?Partner=interlink', 
     name: 'Mako Military',
-    alternativeUrl: 'https://www.mako.co.il/news-military?partner=rss'
+    alternativeUrl: 'https://www.mako.co.il/news-military?partner=rss',
+    minRequestInterval: 30 * 60 * 1000 // 30 minutes between requests
   },
   { 
     url: 'https://rcs.mako.co.il/rss/news-law.xml?Partner=interlink', 
     name: 'Mako Law',
-    alternativeUrl: 'https://www.mako.co.il/news-law?partner=rss' 
+    alternativeUrl: 'https://www.mako.co.il/news-law?partner=rss',
+    minRequestInterval: 30 * 60 * 1000 // 30 minutes between requests
   }
 ];
+
+// Track last successful request time for each source
+const lastSuccessfulRequests = {};
 
 // Load politicians from JSON file
 const POLITICIANS_DATA = fs.readFileSync(path.join(__dirname, '../../data/politicians/politicians.json'), 'utf8');
@@ -915,13 +927,36 @@ const processBatchForPoliticianDetection = async (articleIds, maxBatchSize = 5) 
   }
 };
 
-// Fetch RSS feed with fallback support
+// Fetch RSS feed with fallback support and rate limiting
 const fetchFeed = async (source) => {
+  // Check if we need to respect rate limits
+  const now = Date.now();
+  const lastRequestTime = lastSuccessfulRequests[source.name] || 0;
+  const timeSinceLastRequest = now - lastRequestTime;
+  const minInterval = source.minRequestInterval || 10 * 60 * 1000; // Default 10 minutes
+  
+  if (timeSinceLastRequest < minInterval) {
+    const timeToWait = minInterval - timeSinceLastRequest;
+    console.log(`Rate limiting for ${source.name}: last request was ${Math.round(timeSinceLastRequest/1000/60)} minutes ago, waiting ${Math.round(timeToWait/1000/60)} more minutes`);
+    
+    // Skip this source for now to respect rate limits
+    return { 
+      items: [],
+      title: source.name,
+      description: 'Skipped due to rate limiting',
+      link: source.url,
+      skipped: true
+    };
+  }
+  
   // Try with the primary URL first
   try {
     console.log(`Attempting to fetch feed from ${source.name} (${source.url})...`);
     const feed = await parser.parseURL(source.url);
     console.log(`Successfully fetched feed from ${source.name} with ${feed.items.length} items`);
+    
+    // Update last request time on success
+    lastSuccessfulRequests[source.name] = Date.now();
     return feed;
   } catch (primaryError) {
     console.log(`Primary URL failed for ${source.name}: ${primaryError.message}`);
@@ -929,9 +964,15 @@ const fetchFeed = async (source) => {
     // If there's an alternative URL, try that next
     if (source.alternativeUrl) {
       try {
+        // Add a small delay before trying alternative URL
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         console.log(`Trying alternative URL for ${source.name}: ${source.alternativeUrl}`);
         const feed = await parser.parseURL(source.alternativeUrl);
         console.log(`Successfully fetched feed from alternative URL for ${source.name} with ${feed.items.length} items`);
+        
+        // Update last request time on success
+        lastSuccessfulRequests[source.name] = Date.now();
         return feed;
       } catch (alternativeError) {
         console.log(`Alternative URL also failed for ${source.name}: ${alternativeError.message}`);
@@ -941,6 +982,9 @@ const fetchFeed = async (source) => {
     // If both URLs failed or there was no alternative, try the axios fallback
     console.log(`Trying axios fallback method for ${source.name}...`);
     try {
+      // Add another small delay before trying axios
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       // First try the primary URL with axios
       const url = source.url;
       const response = await axios.get(url, {
@@ -988,6 +1032,9 @@ const fetchFeed = async (source) => {
       };
       
       console.log(`Successfully parsed feed with axios for ${source.name} with ${items.length} items`);
+      
+      // Update last request time on success
+      lastSuccessfulRequests[source.name] = Date.now();
       return feed;
       
     } catch (axiosError) {
@@ -1014,12 +1061,19 @@ const updateFeeds = async () => {
     // Track articles for politician detection
     const articlesToProcess = [];
     let totalArticlesProcessed = 0;
+    let sourcesSkipped = 0;
     
     // Process each source sequentially to avoid overwhelming the system
     for (const source of NEWS_SOURCES) {
       try {
         // Fetch feed with our enhanced method
         const feed = await fetchFeed(source);
+        
+        // If feed was skipped due to rate limiting, count it and continue
+        if (feed.skipped) {
+          sourcesSkipped++;
+          continue;
+        }
         
         if (!feed || !feed.items || feed.items.length === 0) {
           console.log(`No items found in feed for ${source.name}, skipping`);
@@ -1076,7 +1130,7 @@ const updateFeeds = async () => {
       }
     }
     
-    console.log(`RSS feed update completed. Total articles processed: ${totalArticlesProcessed}`);
+    console.log(`RSS feed update completed. Total articles processed: ${totalArticlesProcessed}, Sources skipped due to rate limiting: ${sourcesSkipped}`);
     
     // Process articles for enhanced politician detection
     if (articlesToProcess.length > 0) {
@@ -1651,7 +1705,7 @@ initDatabase()
   .then(() => {
     app.listen(config.port, () => {
       console.log(`Server running on ${config.isProduction ? config.apiBaseUrl : 'http://localhost:' + config.port}`);
-      console.log(`API ready for connections - RSS feeds will be cleared and refreshed`);
+      console.log(`API ready for connections - RSS feeds will be updated with ${Math.round(UPDATE_INTERVAL/1000/60)} minute intervals`);
       
       // Clear all existing articles on startup
       console.log('Clearing all existing articles...');
@@ -1665,11 +1719,17 @@ initDatabase()
             } else {
               console.log('All articles cleared successfully.');
               
-              // Initial feed update after clearing
-              updateFeeds();
+              // Delay the initial feed update to avoid immediate requests
+              const initialDelay = 10000; // 10 seconds
+              console.log(`Initial feed update will start in ${initialDelay/1000} seconds...`);
               
-              // Schedule regular updates
-              setInterval(updateFeeds, UPDATE_INTERVAL);
+              setTimeout(() => {
+                // Initial feed update 
+                updateFeeds();
+                
+                // Schedule regular updates with the defined interval
+                setInterval(updateFeeds, UPDATE_INTERVAL);
+              }, initialDelay);
             }
           });
         }
