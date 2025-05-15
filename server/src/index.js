@@ -1050,9 +1050,10 @@ app.get('/', (req, res) => {
     endpoints: [
       '/api/news - Get all news articles with pagination',
       '/api/news?onlySummarized=true - Get only articles with summaries',
-      '/api/news/politicians - Get only articles with politician mentions',
+      '/api/news?onlyWithPoliticians=true - Get only articles with politician mentions',
+      '/api/news?sort=publishedAt&order=desc - Sort articles by publication date',
       '/api/news/:id - Get a specific news article',
-      '/api/news-stats/all - Get statistics about articles with and without summaries',
+      '/api/news-stats/all - Get statistics about articles',
       '/api/summarize/:id - Generate or retrieve a summary for an article',
       '/api/refresh - Trigger a manual feed update (admin)',
       '/api/clear - Clear all news articles from the database (admin)',
@@ -1148,9 +1149,12 @@ app.get('/api/news', (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = (page - 1) * limit;
     const onlySummarized = req.query.onlySummarized === 'true';
+    const onlyWithPoliticians = req.query.onlyWithPoliticians === 'true';
+    const sort = req.query.sort || 'publishedAt';
+    const order = req.query.order === 'asc' ? 'ASC' : 'DESC';
     
-    // Basic query without filtering for summaries first
-    const baseQuery = `
+    // Build the query based on filters
+    let baseQuery = `
       SELECT 
         a.*,
         GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
@@ -1158,35 +1162,57 @@ app.get('/api/news', (req, res) => {
       LEFT JOIN politician_mentions pm ON a.id = pm.articleId
       WHERE a.description IS NOT NULL AND a.description != '' 
       AND (LENGTH(a.description) - LENGTH(REPLACE(a.description, ' ', '')) + 1) >= 10
+    `;
+    
+    // Add filter for summarized articles if requested
+    if (onlySummarized) {
+      baseQuery += ` AND a.summary IS NOT NULL AND a.summary != '' `;
+    }
+    
+    // Add filter for articles with politician mentions if requested
+    if (onlyWithPoliticians) {
+      baseQuery += ` AND EXISTS (
+        SELECT 1 FROM politician_mentions pm2 
+        WHERE pm2.articleId = a.id
+      ) `;
+    }
+    
+    // Add group by, sort and pagination
+    baseQuery += `
       GROUP BY a.id
-      ORDER BY publishedAt DESC
+      ORDER BY ${sort} ${order}
       LIMIT ? OFFSET ?
     `;
     
-    // First get all articles without summary filtering
-    db.all(baseQuery, [limit, offset], (err, allRows) => {
+    console.log(`Executing query with filters: onlySummarized=${onlySummarized}, onlyWithPoliticians=${onlyWithPoliticians}`);
+    
+    // Execute the query
+    db.all(baseQuery, [limit, offset], (err, rows) => {
       if (err) {
         console.error('Database error:', err);
+        console.error('Failed query:', baseQuery);
         return res.status(500).json({ error: 'Database error' });
       }
       
-      // Filter articles with summaries if needed
-      let filteredRows = allRows;
-      if (onlySummarized) {
-        filteredRows = allRows.filter(row => 
-          row.summary !== null && 
-          row.summary !== undefined && 
-          row.summary.trim() !== ''
-        );
-      }
-      
-      // Count total for pagination - NO TABLE ALIAS here
-      const countQuery = `
+      // Count total for pagination with the same filters
+      let countQuery = `
         SELECT COUNT(*) as count 
-        FROM articles 
+        FROM articles a
         WHERE description IS NOT NULL AND description != '' 
         AND (LENGTH(description) - LENGTH(REPLACE(description, ' ', '')) + 1) >= 10
       `;
+      
+      // Add the same filters to count query
+      if (onlySummarized) {
+        countQuery += ` AND summary IS NOT NULL AND summary != '' `;
+      }
+      
+      if (onlyWithPoliticians) {
+        countQuery += ` AND EXISTS (
+          SELECT 1 FROM politician_mentions pm 
+          WHERE pm.articleId = a.id
+        ) `;
+      }
       
       db.get(countQuery, (err, countRow) => {
         if (err) {
@@ -1195,49 +1221,11 @@ app.get('/api/news', (req, res) => {
           return res.status(500).json({ error: 'Database error' });
         }
         
-        // Get total count with the same filtering logic
-        let total = countRow.count;
-        let effectiveTotal = total;
-        
-        // If we're filtering for summarized articles, count those too - NO TABLE ALIAS here
-        if (onlySummarized) {
-          const summaryCountQuery = `
-            SELECT COUNT(*) as count 
-            FROM articles 
-            WHERE summary IS NOT NULL AND summary != '' 
-            AND description IS NOT NULL AND description != '' 
-            AND (LENGTH(description) - LENGTH(REPLACE(description, ' ', '')) + 1) >= 10
-          `;
-          
-          // It's possible the summary column doesn't exist yet
-          try {
-            db.get(summaryCountQuery, (err, summaryCountRow) => {
-              if (err) {
-                console.error('Error counting summarized articles:', err);
-                console.error('Failed query:', summaryCountQuery);
-                // If there's an error, the column might not exist yet
-                effectiveTotal = 0;
-              } else {
-                effectiveTotal = summaryCountRow.count || 0;
-              }
-              
-              finishResponse(filteredRows, total, effectiveTotal);
-            });
-          } catch (error) {
-            console.error('Error counting articles with summaries:', error);
-            // If there's an error, assume no summarized articles
-            finishResponse(filteredRows, total, 0);
-          }
-        } else {
-          finishResponse(filteredRows, total, total);
-        }
-      });
-      
-      function finishResponse(articles, total, effectiveTotal) {
-        const totalPages = Math.ceil(effectiveTotal / limit);
+        const total = countRow.count || 0;
+        const totalPages = Math.ceil(total / limit);
         
         // Format the response
-        const formattedArticles = articles.map(row => {
+        const formattedArticles = rows.map(row => {
           // Deduplicate politician names
           const mentionedPoliticians = row.mentionedPoliticians 
             ? [...new Set(row.mentionedPoliticians.split(','))]
@@ -1254,10 +1242,16 @@ app.get('/api/news', (req, res) => {
           pagination: {
             page,
             pages: totalPages,
-            total: effectiveTotal
+            total
+          },
+          filters: {
+            onlySummarized,
+            onlyWithPoliticians,
+            sort,
+            order
           }
         });
-      }
+      });
     });
   } catch (error) {
     console.error('Unexpected error in /api/news:', error);
@@ -1265,13 +1259,14 @@ app.get('/api/news', (req, res) => {
   }
 });
 
-// Get total articles count (with and without summaries) - with more specific path
+// Add an endpoint for stats including politician data
 app.get('/api/news-stats/all', (req, res) => {
   db.get(
     `SELECT 
       COUNT(*) as total,
       SUM(CASE WHEN summary IS NOT NULL AND summary != '' THEN 1 ELSE 0 END) as withSummary,
-      SUM(CASE WHEN summary IS NULL OR summary = '' THEN 1 ELSE 0 END) as withoutSummary
+      SUM(CASE WHEN summary IS NULL OR summary = '' THEN 1 ELSE 0 END) as withoutSummary,
+      (SELECT COUNT(DISTINCT articleId) FROM politician_mentions) as withPoliticians
     FROM articles`,
     [],
     (err, row) => {
@@ -1285,6 +1280,7 @@ app.get('/api/news-stats/all', (req, res) => {
           total: row.total || 0,
           withSummary: row.withSummary || 0,
           withoutSummary: row.withoutSummary || 0,
+          withPoliticians: row.withPoliticians || 0,
           percentComplete: row.total > 0 ? Math.round((row.withSummary / row.total) * 100) : 0
         }
       });
@@ -1402,82 +1398,6 @@ app.post('/api/debug/test-groq', async (req, res) => {
       message: error.message,
       stack: error.stack
     });
-  }
-});
-
-// Add a new endpoint for articles with politician mentions
-app.get('/api/news/politicians', (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-    
-    // Query for articles with politician mentions
-    const query = `
-      SELECT 
-        a.*,
-        GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
-      FROM articles a
-      INNER JOIN politician_mentions pm ON a.id = pm.articleId
-      WHERE a.description IS NOT NULL AND a.description != '' 
-      AND (LENGTH(a.description) - LENGTH(REPLACE(a.description, ' ', '')) + 1) >= 10
-      GROUP BY a.id
-      ORDER BY publishedAt DESC
-      LIMIT ? OFFSET ?
-    `;
-    
-    db.all(query, [limit, offset], (err, rows) => {
-      if (err) {
-        console.error('Database error:', err);
-        console.error('Failed query:', query);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      
-      // Count total for pagination
-      const countQuery = `
-        SELECT COUNT(DISTINCT a.id) as count 
-        FROM articles a
-        INNER JOIN politician_mentions pm ON a.id = pm.articleId
-        WHERE description IS NOT NULL AND description != '' 
-        AND (LENGTH(description) - LENGTH(REPLACE(description, ' ', '')) + 1) >= 10
-      `;
-      
-      db.get(countQuery, (err, countRow) => {
-        if (err) {
-          console.error('Count error:', err);
-          console.error('Failed query:', countQuery);
-          return res.status(500).json({ error: 'Database error' });
-        }
-        
-        const total = countRow.count || 0;
-        const totalPages = Math.ceil(total / limit);
-        
-        // Format the response
-        const formattedArticles = rows.map(row => {
-          // Deduplicate politician names
-          const mentionedPoliticians = row.mentionedPoliticians 
-            ? [...new Set(row.mentionedPoliticians.split(','))]
-            : [];
-            
-          return {
-            ...row,
-            mentionedPoliticians
-          };
-        });
-        
-        res.json({
-          news: formattedArticles,
-          pagination: {
-            page,
-            pages: totalPages,
-            total
-          }
-        });
-      });
-    });
-  } catch (error) {
-    console.error('Unexpected error in /api/news/politicians:', error);
-    return res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 
