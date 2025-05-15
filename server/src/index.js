@@ -663,6 +663,12 @@ const updateFeeds = async () => {
           // Get a clean description
           const description = extractCleanDescription(item, source.name);
           
+          // Skip items with empty descriptions or descriptions with fewer than 10 words
+          if (!description || description.trim() === '' || description.trim().split(/\s+/).length < 10) {
+            console.log(`Skipping item with insufficient description: "${item.title}"`);
+            continue;
+          }
+          
           const article = {
             title: item.title || '',
             description: description,
@@ -871,9 +877,20 @@ app.get('/api/news', (req, res) => {
     LEFT JOIN politician_mentions pm ON a.id = pm.articleId
   `;
   
-  // Add filter for summarized articles if requested
+  // Add filters
+  let whereClause = [];
+  
+  // Filter for summarized articles if requested
   if (onlySummarized) {
-    query += ` WHERE a.summary IS NOT NULL AND a.summary != '' `;
+    whereClause.push(`a.summary IS NOT NULL AND a.summary != ''`);
+  }
+  
+  // Filter out articles with empty descriptions or fewer than 10 words
+  whereClause.push(`a.description IS NOT NULL AND a.description != '' AND (LENGTH(a.description) - LENGTH(REPLACE(a.description, ' ', '')) + 1) >= 10`);
+  
+  // Apply where clause if we have conditions
+  if (whereClause.length > 0) {
+    query += ` WHERE ${whereClause.join(' AND ')}`;
   }
   
   // Complete the query
@@ -894,8 +911,10 @@ app.get('/api/news', (req, res) => {
       
       // Get total count for pagination
       let countQuery = 'SELECT COUNT(*) as count FROM articles';
-      if (onlySummarized) {
-        countQuery += ` WHERE summary IS NOT NULL AND summary != ''`;
+      
+      // Add the same filters to the count query
+      if (whereClause.length > 0) {
+        countQuery += ` WHERE ${whereClause.join(' AND ')}`;
       }
       
       db.get(countQuery, (err, countRow) => {
@@ -981,6 +1000,12 @@ app.get('/api/news/:id', (req, res) => {
         ...row,
         mentionedPoliticians: row.mentionedPoliticians ? row.mentionedPoliticians.split(',') : []
       };
+      
+      // Check if the article has an insufficient description
+      if (!article.description || article.description.trim() === '' || 
+          article.description.trim().split(/\s+/).length < 10) {
+        article.warning = "This article has an insufficient description and wouldn't normally be shown in the feed.";
+      }
       
       res.json(article);
     }
