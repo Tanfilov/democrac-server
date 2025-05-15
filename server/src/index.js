@@ -210,39 +210,72 @@ const extractCleanDescription = (item, source) => {
 const findPoliticianMentions = (text) => {
   if (!text) return [];
   
-  // Convert text to lowercase for case-insensitive comparison
-  const textLower = text.toLowerCase();
+  // Hebrew prefixes that might appear before names
+  const prefixes = ['', 'ל', 'מ', 'ב', 'ו', 'ש', 'ה'];
+  const wordBoundaries = [' ', '.', ',', ':', ';', '?', '!', '"', "'", '(', ')', '[', ']', '{', '}', '\n', '\t'];
   
   return POLITICIANS.filter(politician => {
-    // Check full politician name (case insensitive)
-    if (textLower.includes(politician.he.toLowerCase())) {
-      return true;
-    }
+    const politicianName = politician.he;
     
-    // Check for last name if the politician name has multiple parts
-    const nameParts = politician.he.split(' ');
-    if (nameParts.length > 1) {
-      const lastName = nameParts[nameParts.length - 1];
-      if (textLower.includes(lastName.toLowerCase())) {
+    // Check for exact name match with possible prefixes and word boundaries
+    for (const prefix of prefixes) {
+      const nameWithPrefix = prefix + politicianName;
+      
+      // Check for the name as a whole word
+      if (isExactMatch(text, nameWithPrefix, wordBoundaries)) {
         return true;
       }
     }
     
-    // Check aliases if any
+    // Check aliases
     if (politician.aliases && politician.aliases.length > 0) {
-      return politician.aliases.some(alias => 
-        textLower.includes(alias.toLowerCase())
-      );
+      for (const alias of politician.aliases) {
+        if (alias.length >= 3) { // Only check aliases that are at least 3 characters
+          for (const prefix of prefixes) {
+            const aliasWithPrefix = prefix + alias;
+            if (isExactMatch(text, aliasWithPrefix, wordBoundaries)) {
+              return true;
+            }
+          }
+        }
+      }
     }
     
     return false;
   }).map(p => p.he);
 };
 
-// Helper function to escape regular expression special characters
-const escapeRegExp = (string) => {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-};
+// Helper function to check for exact word matches
+function isExactMatch(text, word, boundaries) {
+  if (!text.includes(word)) return false;
+  
+  const indexes = findAllOccurrences(text, word);
+  
+  for (const index of indexes) {
+    const beforeChar = index === 0 ? ' ' : text[index - 1];
+    const afterChar = index + word.length >= text.length ? ' ' : text[index + word.length];
+    
+    if ((boundaries.includes(beforeChar) || index === 0) && 
+        (boundaries.includes(afterChar) || index + word.length === text.length)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Helper function to find all occurrences of a substring
+function findAllOccurrences(text, subtext) {
+  const indexes = [];
+  let index = text.indexOf(subtext);
+  
+  while (index !== -1) {
+    indexes.push(index);
+    index = text.indexOf(subtext, index + 1);
+  }
+  
+  return indexes;
+}
 
 // Enhanced politician detection using existing data
 const enhancedPoliticianDetection = async (article) => {
