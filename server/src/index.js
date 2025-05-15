@@ -149,17 +149,20 @@ const NEWS_SOURCES = [
   { url: 'https://rcs.mako.co.il/rss/news-law.xml?Partner=interlink', name: 'Mako Law' }
 ];
 
-// List of politicians to detect in content
-const POLITICIANS = [
-  { he: 'בנימין נתניהו', en: 'Benjamin Netanyahu' },
-  { he: 'יאיר לפיד', en: 'Yair Lapid' },
-  { he: 'בני גנץ', en: 'Benny Gantz' },
-  { he: 'נפתלי בנט', en: 'Naftali Bennett' },
-  { he: 'איילת שקד', en: 'Ayelet Shaked' },
-  { he: 'יצחק הרצוג', en: 'Isaac Herzog' },
-  { he: 'אביגדור ליברמן', en: 'Avigdor Lieberman' },
-  { he: 'מרב מיכאלי', en: 'Merav Michaeli' }
-];
+// Load politicians from JSON file
+const POLITICIANS_DATA = fs.readFileSync(path.join(__dirname, '../../data/politicians/politicians.json'), 'utf8');
+const POLITICIANS_LIST = JSON.parse(POLITICIANS_DATA);
+
+// Format for detection (Hebrew name and possible English translation)
+const POLITICIANS = POLITICIANS_LIST.map(p => {
+  // Default English translation (for now, just use the same name)
+  // This can be enhanced later with actual translations
+  const enName = p.name;
+  return { he: p.name, en: enName, aliases: p.aliases || [] };
+});
+
+// Log the number of politicians loaded for debugging
+console.log(`Loaded ${POLITICIANS.length} politicians for detection`);
 
 // Extract image URL from RSS item
 const extractImageUrl = (item) => {
@@ -213,7 +216,20 @@ const findPoliticianMentions = (text) => {
     const heNamePattern = new RegExp(`\\b${escapeRegExp(politician.he.toLowerCase())}\\b`, 'u');
     const enNamePattern = new RegExp(`\\b${escapeRegExp(politician.en.toLowerCase())}\\b`, 'i');
     
-    return heNamePattern.test(textLower) || enNamePattern.test(textLower);
+    // Check main names
+    if (heNamePattern.test(textLower) || enNamePattern.test(textLower)) {
+      return true;
+    }
+    
+    // Check aliases if any
+    if (politician.aliases && politician.aliases.length > 0) {
+      return politician.aliases.some(alias => {
+        const aliasPattern = new RegExp(`\\b${escapeRegExp(alias.toLowerCase())}\\b`, 'u');
+        return aliasPattern.test(textLower);
+      });
+    }
+    
+    return false;
   }).map(p => p.he);
 };
 
