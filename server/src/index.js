@@ -205,33 +205,54 @@ const extractCleanDescription = (item, source) => {
 const findPoliticianMentions = (text) => {
   if (!text) return [];
   
+  // Convert text to lowercase for case-insensitive comparison
+  const textLower = text.toLowerCase();
+  
   return POLITICIANS.filter(politician => {
-    return text.toLowerCase().includes(politician.he.toLowerCase()) || 
-           text.toLowerCase().includes(politician.en.toLowerCase());
+    // More accurate detection with word boundary checks
+    const heNamePattern = new RegExp(`\\b${escapeRegExp(politician.he.toLowerCase())}\\b`, 'u');
+    const enNamePattern = new RegExp(`\\b${escapeRegExp(politician.en.toLowerCase())}\\b`, 'i');
+    
+    return heNamePattern.test(textLower) || enNamePattern.test(textLower);
   }).map(p => p.he);
+};
+
+// Helper function to escape regular expression special characters
+const escapeRegExp = (string) => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };
 
 // Enhanced politician detection using existing data
 const enhancedPoliticianDetection = async (article) => {
   // Step 1: Check title and description
   let detectedPoliticians = [];
+  let confidenceScores = {};
   
-  // Check title
+  // Check title - highest confidence
   if (article.title) {
     const titlePoliticians = findPoliticianMentions(article.title);
-    detectedPoliticians = [...detectedPoliticians, ...titlePoliticians];
+    titlePoliticians.forEach(p => {
+      detectedPoliticians.push(p);
+      confidenceScores[p] = (confidenceScores[p] || 0) + 3; // Higher weight for title matches
+    });
   }
   
   // Check description
   if (article.description) {
     const descriptionPoliticians = findPoliticianMentions(article.description);
-    detectedPoliticians = [...detectedPoliticians, ...descriptionPoliticians];
+    descriptionPoliticians.forEach(p => {
+      if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
+      confidenceScores[p] = (confidenceScores[p] || 0) + 2; // Medium weight for description matches
+    });
   }
   
   // Step 2: If we have content already, check it
   if (article.content && article.content.length > 50) {
     const contentPoliticians = findPoliticianMentions(article.content);
-    detectedPoliticians = [...detectedPoliticians, ...contentPoliticians];
+    contentPoliticians.forEach(p => {
+      if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
+      confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
+    });
   } 
   // If we don't have sufficient content, scrape it
   else if (article.link) {
@@ -254,15 +275,26 @@ const enhancedPoliticianDetection = async (article) => {
         
         // Check for politicians in the scraped content
         const scrapedContentPoliticians = findPoliticianMentions(scrapedContent);
-        detectedPoliticians = [...detectedPoliticians, ...scrapedContentPoliticians];
+        scrapedContentPoliticians.forEach(p => {
+          if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
+          confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
+        });
       }
     } catch (error) {
       console.error(`Error scraping content for politician detection: ${error.message}`);
     }
   }
   
-  // Return unique politicians
-  return [...new Set(detectedPoliticians)];
+  // Filter results based on confidence score
+  const highConfidencePoliticians = detectedPoliticians.filter(p => confidenceScores[p] >= 2);
+  
+  // Log detection details for debugging
+  console.log(`Article ID ${article.id}: Detected politicians with confidence:`, 
+    detectedPoliticians.map(p => `${p} (score: ${confidenceScores[p]})`).join(', '));
+  console.log(`Article ID ${article.id}: High confidence politicians:`, highConfidencePoliticians.join(', '));
+  
+  // Return unique high-confidence politicians
+  return [...new Set(highConfidencePoliticians)];
 };
 
 // Update politician mentions for an article
@@ -700,8 +732,8 @@ const insertArticle = (article, mentions) => {
   });
 };
 
-// Process a batch of articles for summarization
-const processBatchForSummarization = async (articleIds, maxBatchSize = 5) => {
+// Process a batch of articles for politician detection
+const processBatchForPoliticianDetection = async (articleIds, maxBatchSize = 5) => {
   if (!articleIds.length) return;
   
   console.log(`Processing batch of ${articleIds.length} articles for politician detection`);
@@ -741,7 +773,6 @@ const processBatchForSummarization = async (articleIds, maxBatchSize = 5) => {
           }
           
           // TEMPORARILY DISABLED: Summarization
-          // Scrape full content if needed
           /* 
           let articleContent = article.content;
           if (!articleContent || articleContent.length < 200) {
@@ -869,7 +900,7 @@ const updateFeeds = async () => {
     
     // Process articles for enhanced politician detection
     if (articlesToProcess.length > 0) {
-      processBatchForSummarization(articlesToProcess);
+      processBatchForPoliticianDetection(articlesToProcess);
     }
   } catch (error) {
     console.error('Error updating feeds:', error);
@@ -1025,6 +1056,7 @@ app.get('/', (req, res) => {
       '/api/summarize/:id - Generate or retrieve a summary for an article',
       '/api/refresh - Trigger a manual feed update (admin)',
       '/api/clear - Clear all news articles from the database (admin)',
+      '/api/reset-politicians - Clear all politician mentions and reprocess (admin)',
       '/api/politicians - Get list of politicians'
     ]
   });
@@ -1068,6 +1100,43 @@ app.post('/api/clear', (req, res) => {
       }
       
       res.json({ message: 'All news articles cleared successfully' });
+    });
+  });
+});
+
+// API endpoint to clear all politician mentions (requires admin API key)
+app.post('/api/reset-politicians', (req, res) => {
+  // Check if API key is provided (simple auth)
+  const apiKey = req.headers['x-admin-api-key'] || req.query.apiKey;
+  if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized - Admin API key required' });
+  }
+  
+  console.log('Clearing all politician mentions...');
+  
+  // Delete all politician mentions
+  db.run('DELETE FROM politician_mentions', (err) => {
+    if (err) {
+      console.error('Error clearing politician mentions:', err);
+      return res.status(500).json({ error: 'Failed to clear politician mentions' });
+    }
+    
+    res.json({ message: 'All politician mentions cleared successfully' });
+    
+    // Start reprocessing all articles to detect politicians with the improved algorithm
+    console.log('Re-processing all articles for politician detection...');
+    
+    // Get all article IDs
+    db.all('SELECT id FROM articles', [], (err, rows) => {
+      if (err) {
+        console.error('Error fetching articles for reprocessing:', err);
+        return;
+      }
+      
+      const articleIds = rows.map(row => row.id);
+      if (articleIds.length > 0) {
+        processBatchForPoliticianDetection(articleIds);
+      }
     });
   });
 });
@@ -1360,6 +1429,7 @@ app.get('/api/news/politicians', (req, res) => {
     db.all(query, [limit, offset], (err, rows) => {
       if (err) {
         console.error('Database error:', err);
+        console.error('Failed query:', query);
         return res.status(500).json({ error: 'Database error' });
       }
       
