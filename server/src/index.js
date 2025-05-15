@@ -16,6 +16,8 @@ const cheerio = require('cheerio');
 // Initialize Groq client (conditionally)
 let groq = null;
 try {
+  console.log('GROQ_API_KEY status:', process.env.GROQ_API_KEY ? 'Set' : 'Not set');
+  
   if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'YOUR_GROQ_API_KEY') {
     groq = new Groq({
       apiKey: process.env.GROQ_API_KEY,
@@ -23,6 +25,8 @@ try {
     console.log('Groq client initialized successfully');
   } else {
     console.warn('GROQ_API_KEY not set or using placeholder value. Summarization will be disabled.');
+    console.log('Check environment variables: GROQ_API_KEY, AUTO_SUMMARIZE, ADMIN_API_KEY');
+    console.log('AUTO_SUMMARIZE setting:', process.env.AUTO_SUMMARIZE);
   }
 } catch (error) {
   console.warn('Failed to initialize Groq client:', error.message);
@@ -472,6 +476,11 @@ app.post('/api/summarize/:id', async (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'Democra.c RSS Feed API',
+    status: {
+      groqApiEnabled: !!groq,
+      autoSummarize: AUTO_SUMMARIZE,
+      adminKeyConfigured: !!process.env.ADMIN_API_KEY
+    },
     endpoints: [
       '/api/news - Get all news articles with pagination',
       '/api/news/:id - Get a specific news article',
