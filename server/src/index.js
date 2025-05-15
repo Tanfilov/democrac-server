@@ -184,68 +184,27 @@ const scrapeArticleContent = async (url) => {
     // Remove unnecessary elements
     $('script, style, nav, header, footer, aside, iframe, .advertisement, .ads, .comments').remove();
     
-    // Get the article title
-    const title = $('h1').first().text().trim();
-    
     // Extract the main content (this may need adjustment based on the specific news sites)
     let mainContent = '';
     
-    // For Ynet articles - need more specific selectors to get the complete article
+    // For Ynet articles
     if (url.includes('ynet.co.il')) {
-      // Get article content - Ynet stores article text in specific elements
-      $('.text_editor_paragraph, .art_content, .art_body').each((i, el) => {
-        const text = $(el).text().trim();
-        if (text) {
-          mainContent += text + ' ';
-        }
-      });
-      
-      // If we didn't get content with specific selectors, try more general ones
-      if (!mainContent.trim()) {
-        $('.article_inner_text, .art_body, article, .article-text').each((i, el) => {
-          const text = $(el).text().trim();
-          if (text) {
-            mainContent += text + ' ';
-          }
-        });
-      }
-      
-      // If still empty, find all paragraph elements in the main content area
-      if (!mainContent.trim()) {
-        $('article p, .article_content p, .article-body p, #art_body p').each((i, el) => {
-          const text = $(el).text().trim();
-          if (text) {
-            mainContent += text + ' ';
-          }
-        });
-      }
-      
-      // Last resort - get all paragraphs
-      if (!mainContent.trim()) {
-        $('p').each((i, el) => {
-          const text = $(el).text().trim();
-          if (text && text.length > 20) { // Avoid short menu items, etc.
-            mainContent += text + ' ';
-          }
-        });
-      }
+      mainContent = $('.article-body').text() || $('article').text();
     } 
     // For Mako articles
     else if (url.includes('mako.co.il')) {
       mainContent = $('.article-body').text() || $('.article').text();
     }
     // Generic fallback
-    if (!mainContent.trim()) {
+    else {
       mainContent = $('article').text() || $('main').text() || $('body').text();
     }
     
     // Clean up the text
-    mainContent = mainContent.replace(/\s+/g, ' ').trim();
-    
-    return { title, content: mainContent };
+    return mainContent.replace(/\s+/g, ' ').trim();
   } catch (error) {
     console.error(`Error scraping article content from ${url}:`, error);
-    return { title: '', content: '' };
+    return '';
   }
 };
 
@@ -271,99 +230,34 @@ const summarizeArticle = async (articleContent, title) => {
     }
     
     const prompt = `
-    You are a professional Israeli newspaper editor specializing in creating concise, informative summaries.
-    Your task is to create a comprehensive summary of the following Hebrew news article, focusing on the main facts and key details.
+    You are a professional newspaper editor specializing in creating concise, informative summaries.
     
-    Here is a news article in Hebrew:
+    Here is a news article:
     Title: ${title}
-    Full Content: ${articleContent}
+    Content: ${articleContent}
     
-    Instructions:
-    1. Write a detailed, comprehensive newspaper-style summary of this article in 4-6 sentences in HEBREW.
-    2. Focus on the key events, facts, participants, and context - not just the opening paragraph.
-    3. Include the most important details from throughout the article, not just the beginning.
-    4. Be factual, objective and thorough in your summary.
-    5. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
+    1. Write a newspaper-style summary of this article in 3-5 sentences. Be factual and objective.
+    2. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
     
     Format your response as JSON:
     {
-      "summary": "Your comprehensive summary in Hebrew here...",
+      "summary": "Your summary here...",
       "mentionedPoliticians": ["Politician Name 1", "Politician Name 2", ...]
     }
-    
-    Make sure to escape any special characters in the JSON properly. If a politician name contains quotes, make sure to escape them properly.
     `;
     
     const completion = await groq.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
       model: 'llama3-8b-8192',
       temperature: 0.3,
-      max_tokens: 1000
+      max_tokens: 1000,
+      response_format: { type: 'json_object' }
     });
     
-    // Get the raw response content
-    const responseContent = completion.choices[0].message.content;
-    
-    // Try to extract JSON from the response
-    let result;
-    try {
-      // Extract JSON if it's wrapped in a code block
-      const jsonMatch = responseContent.match(/```json\s*({[\s\S]*?})\s*```/) || 
-                        responseContent.match(/```\s*({[\s\S]*?})\s*```/) ||
-                        responseContent.match(/({[\s\S]*})/);
-      
-      if (jsonMatch && jsonMatch[1]) {
-        result = JSON.parse(jsonMatch[1]);
-      } else {
-        result = JSON.parse(responseContent);
-      }
-    } catch (error) {
-      console.error('Error parsing JSON from response:', error);
-      
-      // Manually extract summary and politicians as fallback
-      const summaryMatch = responseContent.match(/"summary":\s*"([^"]+)"/);
-      const politiciansMatch = responseContent.match(/"mentionedPoliticians":\s*\[(.*?)\]/);
-      
-      if (summaryMatch) {
-        const summary = summaryMatch[1];
-        const politiciansList = politiciansMatch ? 
-          politiciansMatch[1].split(',').map(p => p.trim().replace(/"/g, '')) : [];
-        
-        result = {
-          summary,
-          mentionedPoliticians: politiciansList
-        };
-      } else {
-        // Use the raw text as the summary if JSON parsing fails
-        result = {
-          summary: responseContent.substring(0, 500), // Limit to 500 chars
-          mentionedPoliticians: []
-        };
-      }
-    }
-    
+    const result = JSON.parse(completion.choices[0].message.content);
     return result;
   } catch (error) {
     console.error('Error summarizing article with Groq:', error);
-    
-    // Check if there's a failed_generation in the error
-    if (error.error?.error?.failed_generation) {
-      console.log('Failed generation content:', error.error.error.failed_generation);
-      
-      // Try to extract useful information from the failed generation
-      try {
-        // Some cleanup to make it valid JSON
-        const cleanedJson = error.error.error.failed_generation
-          .replace(/\\\\/g, '\\')
-          .replace(/\\n/g, '\n');
-        
-        const result = JSON.parse(cleanedJson);
-        return result;
-      } catch (jsonError) {
-        console.error('Error parsing failed generation:', jsonError);
-      }
-    }
-    
     return { summary: 'Error during summarization', mentionedPoliticians: [] };
   }
 };
@@ -427,7 +321,48 @@ const updateFeeds = async () => {
           };
           
           const mentions = findPoliticianMentions(article.title + ' ' + article.content);
-          await insertArticle(article, mentions);
+          const articleId = await insertArticle(article, mentions);
+          
+          // Auto-generate summary for new articles if enabled
+          if (articleId && process.env.AUTO_SUMMARIZE === 'true' && groq) {
+            try {
+              console.log(`Auto-generating summary for new article ID: ${articleId}`);
+              // Scrape full content if needed
+              let articleContent = article.content;
+              if (!articleContent || articleContent.length < 200) {
+                const scrapedContent = await scrapeArticleContent(article.link);
+                if (scrapedContent && scrapedContent.content) {
+                  articleContent = scrapedContent.content;
+                }
+              }
+              
+              // Generate summary
+              const { summary, mentionedPoliticians } = await summarizeArticle(articleContent, article.title);
+              
+              // Update the article with the summary
+              if (summary) {
+                db.run('UPDATE articles SET summary = ? WHERE id = ?', [summary, articleId]);
+                
+                // Add any new politician mentions
+                if (mentionedPoliticians && mentionedPoliticians.length > 0) {
+                  const existingMentions = mentions;
+                  const newMentions = mentionedPoliticians.filter(p => !existingMentions.includes(p));
+                  
+                  if (newMentions.length > 0) {
+                    const mentionValues = newMentions.map(name => 
+                      `(${articleId}, '${name.replace(/'/g, "''")}')`
+                    ).join(',');
+                    
+                    db.run(
+                      `INSERT INTO politician_mentions (articleId, politicianName) VALUES ${mentionValues}`
+                    );
+                  }
+                }
+              }
+            } catch (summaryError) {
+              console.error(`Error auto-generating summary for article ${articleId}:`, summaryError);
+            }
+          }
         }
         
         console.log(`Processed ${feed.items.length} items from ${source.name}`);
@@ -530,53 +465,6 @@ app.post('/api/summarize/:id', async (req, res) => {
   }
 });
 
-// API route to summarize an article by URL
-app.post('/api/summarize-url', async (req, res) => {
-  try {
-    const { url } = req.body;
-    
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
-    }
-    
-    console.log(`Summarizing article from URL: ${url}`);
-    
-    // Scrape the article content
-    const articleContent = await scrapeArticleContent(url);
-    
-    if (!articleContent || !articleContent.content) {
-      return res.status(404).json({ error: 'Failed to extract article content' });
-    }
-    
-    console.log(`Extracted content length: ${articleContent.content.length} characters`);
-    
-    // Get title from the scraped content or use a placeholder
-    const title = articleContent.title || 'Article Title';
-    const content = articleContent.content;
-    
-    // Summarize the article
-    const { summary, mentionedPoliticians } = await summarizeArticle(content, title);
-    
-    if (!summary) {
-      return res.status(500).json({ error: 'Failed to generate summary' });
-    }
-    
-    // Return the summary
-    res.json({ 
-      success: true, 
-      title,
-      url,
-      summary,
-      mentionedPoliticians,
-      content_length: content.length,
-      content_preview: content.substring(0, 200) + '...'
-    });
-  } catch (error) {
-    console.error('Error in summarize-url endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 // API routes
 
 // Default route
@@ -588,11 +476,127 @@ app.get('/', (req, res) => {
       '/api/news/:id - Get a specific news article',
       '/api/summarize/:id - Generate or retrieve a summary for an article',
       '/api/summarize-url - Generate a summary for an article by URL',
+      '/api/summarize-all - Bulk generate summaries for all articles without summaries (admin)',
       '/api/refresh - Trigger a manual feed update',
       '/api/clear - Clear all news articles from the database',
       '/api/politicians - Get list of politicians'
     ]
   });
+});
+
+// Bulk generate summaries for all articles without summaries
+app.post('/api/summarize-all', async (req, res) => {
+  try {
+    // Check if API key is provided (simple auth)
+    const apiKey = req.headers['x-api-key'] || req.query.apiKey;
+    if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
+      return res.status(401).json({ error: 'Unauthorized - API key required' });
+    }
+    
+    // Check if Groq is initialized
+    if (!groq) {
+      return res.status(500).json({ error: 'Groq API not configured' });
+    }
+    
+    // Get articles without summaries
+    db.all(
+      `SELECT id, title, content, link FROM articles WHERE summary IS NULL OR summary = '' LIMIT 50`,
+      async (err, articles) => {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+        
+        console.log(`Found ${articles.length} articles without summaries. Processing...`);
+        
+        // Start processing in the background
+        res.json({ 
+          status: 'processing', 
+          message: `Started processing ${articles.length} articles in the background`,
+          articles: articles.map(a => ({ id: a.id, title: a.title }))
+        });
+        
+        // Process each article
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const article of articles) {
+          try {
+            // Scrape content if needed
+            let articleContent = article.content;
+            if (!articleContent || articleContent.length < 200) {
+              try {
+                const scrapedContent = await scrapeArticleContent(article.link);
+                if (scrapedContent && scrapedContent.content) {
+                  articleContent = scrapedContent.content;
+                  
+                  // Update the content in the database
+                  db.run('UPDATE articles SET content = ? WHERE id = ?', [
+                    scrapedContent.content, article.id
+                  ]);
+                }
+              } catch (scrapeError) {
+                console.error(`Error scraping content for article ${article.id}:`, scrapeError);
+              }
+            }
+            
+            // Generate summary
+            const { summary, mentionedPoliticians } = await summarizeArticle(articleContent, article.title);
+            
+            if (summary) {
+              // Update article with summary
+              db.run('UPDATE articles SET summary = ? WHERE id = ?', [summary, article.id]);
+              
+              // Update politician mentions
+              if (mentionedPoliticians && mentionedPoliticians.length > 0) {
+                db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [article.id], (err, rows) => {
+                  if (err) {
+                    console.error(`Error getting existing mentions for article ${article.id}:`, err);
+                    return;
+                  }
+                  
+                  const existingMentions = rows ? rows.map(row => row.politicianName) : [];
+                  const newMentions = mentionedPoliticians.filter(p => !existingMentions.includes(p));
+                  
+                  if (newMentions.length > 0) {
+                    const mentionValues = newMentions.map(name => 
+                      `(${article.id}, '${name.replace(/'/g, "''")}')`
+                    ).join(',');
+                    
+                    db.run(
+                      `INSERT INTO politician_mentions (articleId, politicianName) VALUES ${mentionValues}`,
+                      function(err) {
+                        if (err) {
+                          console.error(`Error inserting mentions for article ${article.id}:`, err);
+                        }
+                      }
+                    );
+                  }
+                });
+              }
+              
+              successCount++;
+              console.log(`Successfully summarized article ${article.id}: ${article.title}`);
+            } else {
+              errorCount++;
+              console.error(`Failed to generate summary for article ${article.id}`);
+            }
+          } catch (error) {
+            errorCount++;
+            console.error(`Error processing article ${article.id}:`, error);
+          }
+          
+          // Add a small delay between requests to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        console.log(`Bulk summarization completed. Success: ${successCount}, Errors: ${errorCount}`);
+      }
+    );
+  } catch (error) {
+    console.error('Error in summarize-all endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Special temporary route to clear database (delete this after use)
@@ -696,7 +700,7 @@ app.get('/api/news', (req, res) => {
         const total = countRow.count;
         const totalPages = Math.ceil(total / limit);
         
-        // Format the response - summary field is already included in a.*
+        // Format the response
         const articles = rows.map(row => ({
           ...row,
           mentionedPoliticians: row.mentionedPoliticians ? row.mentionedPoliticians.split(',') : []
@@ -738,7 +742,7 @@ app.get('/api/news/:id', (req, res) => {
         return res.status(404).json({ error: 'Article not found' });
       }
       
-      // Format the response - summary field is already included in a.*
+      // Format the response
       const article = {
         ...row,
         mentionedPoliticians: row.mentionedPoliticians ? row.mentionedPoliticians.split(',') : []
