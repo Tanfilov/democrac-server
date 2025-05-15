@@ -4,10 +4,11 @@
   "description": "News RSS feed server for Democra.c app",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
+    "start": "cd server && node index.js",
+    "dev": "cd server && nodemon index.js",
     "setup": "node -e \"require('fs').existsSync('./news.db') || require('fs').writeFileSync('./news.db', '')\"",
-    "clean": "node -e \"require('fs').existsSync('./news.db') && require('fs').unlinkSync('./news.db')\""
+    "clean": "node -e \"require('fs').existsSync('./news.db') && require('fs').unlinkSync('./news.db')\"",
+    "postinstall": "cd server && npm install"
   },
   "dependencies": {
     "axios": "^1.9.0",
@@ -19,9 +20,13 @@
     "groq-sdk": "^0.21.0",
     "html-to-text": "^9.0.5",
     "rss-parser": "^3.13.0",
-    "sqlite3": "^5.1.6"
+    "sqlite3": "^5.1.6",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": ">=16"
   }
 }

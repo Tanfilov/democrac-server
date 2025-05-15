@@ -4,8 +4,8 @@ services:
     env: node
     plan: free
     branch: main
-    buildCommand: cd server && npm install
-    startCommand: cd server && npm start
+    buildCommand: npm install && cd server && npm install
+    startCommand: cd server && node index.js
     envVars:
       - key: UPDATE_INTERVAL
         value: 300000
