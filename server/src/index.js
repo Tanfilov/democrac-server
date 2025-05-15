@@ -905,88 +905,96 @@ app.get('/api/news', (req, res) => {
   const offset = (page - 1) * limit;
   const onlySummarized = req.query.onlySummarized === 'true';
   
-  // SQL query
-  let query = `
-    SELECT 
-      a.*,
-      GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
-    FROM articles a
-    LEFT JOIN politician_mentions pm ON a.id = pm.articleId
-  `;
-  
-  // Add filters
-  let whereClause = [];
-  
-  // Filter for summarized articles if requested
-  if (onlySummarized) {
-    whereClause.push(`a.summary IS NOT NULL AND a.summary != ''`);
-  }
-  
-  // Filter out articles with empty descriptions or fewer than 10 words
-  whereClause.push(`a.description IS NOT NULL AND a.description != '' AND (LENGTH(a.description) - LENGTH(REPLACE(a.description, ' ', '')) + 1) >= 10`);
-  
-  // Apply where clause if we have conditions
-  if (whereClause.length > 0) {
-    query += ` WHERE ${whereClause.join(' AND ')}`;
-  }
-  
-  // Complete the query
-  query += `
-    GROUP BY a.id
-    ORDER BY publishedAt DESC
-    LIMIT ? OFFSET ?
-  `;
-  
-  db.all(
-    query,
-    [limit, offset],
-    (err, rows) => {
-      if (err) {
-        console.error('Database error:', err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      
-      // Get total count for pagination
-      let countQuery = 'SELECT COUNT(*) as count FROM articles';
-      
-      // Add the same filters to the count query
-      if (whereClause.length > 0) {
-        countQuery += ` WHERE ${whereClause.join(' AND ')}`;
-      }
-      
-      db.get(countQuery, (err, countRow) => {
+  // Check if summary column exists in the table
+  db.get("SELECT COUNT(*) as count FROM pragma_table_info('articles') WHERE name = 'summary'", (err, summaryExists) => {
+    if (err) {
+      console.error('Error checking summary column:', err);
+      return res.status(500).json({ error: 'Database error' });
+    }
+    
+    // SQL query
+    let query = `
+      SELECT 
+        a.*,
+        GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
+      FROM articles a
+      LEFT JOIN politician_mentions pm ON a.id = pm.articleId
+    `;
+    
+    // Add filters
+    let whereClause = [];
+    
+    // Filter for summarized articles if requested and if summary column exists
+    if (onlySummarized && summaryExists.count > 0) {
+      whereClause.push(`a.summary IS NOT NULL AND a.summary != ''`);
+    }
+    
+    // Filter out articles with empty descriptions or fewer than 10 words
+    whereClause.push(`a.description IS NOT NULL AND a.description != '' AND (LENGTH(a.description) - LENGTH(REPLACE(a.description, ' ', '')) + 1) >= 10`);
+    
+    // Apply where clause if we have conditions
+    if (whereClause.length > 0) {
+      query += ` WHERE ${whereClause.join(' AND ')}`;
+    }
+    
+    // Complete the query
+    query += `
+      GROUP BY a.id
+      ORDER BY publishedAt DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    db.all(
+      query,
+      [limit, offset],
+      (err, rows) => {
         if (err) {
-          console.error('Count error:', err);
+          console.error('Database error:', err);
           return res.status(500).json({ error: 'Database error' });
         }
         
-        const total = countRow.count;
-        const totalPages = Math.ceil(total / limit);
+        // Get total count for pagination
+        let countQuery = 'SELECT COUNT(*) as count FROM articles';
         
-        // Format the response
-        const articles = rows.map(row => {
-          // Deduplicate politician names
-          const mentionedPoliticians = row.mentionedPoliticians 
-            ? [...new Set(row.mentionedPoliticians.split(','))]
-            : [];
-            
-          return {
-            ...row,
-            mentionedPoliticians
-          };
-        });
+        // Add the same filters to the count query
+        if (whereClause.length > 0) {
+          countQuery += ` WHERE ${whereClause.join(' AND ')}`;
+        }
         
-        res.json({
-          news: articles,
-          pagination: {
-            page,
-            pages: totalPages,
-            total
+        db.get(countQuery, (err, countRow) => {
+          if (err) {
+            console.error('Count error:', err);
+            return res.status(500).json({ error: 'Database error' });
           }
+          
+          const total = countRow.count || 0;
+          const totalPages = Math.ceil(total / limit);
+          
+          // Format the response
+          const articles = rows.map(row => {
+            // Deduplicate politician names
+            const mentionedPoliticians = row.mentionedPoliticians 
+              ? [...new Set(row.mentionedPoliticians.split(','))]
+              : [];
+              
+            return {
+              ...row,
+              mentionedPoliticians
+            };
+          });
+          
+          res.json({
+            news: articles,
+            pagination: {
+              page,
+              pages: totalPages,
+              total
+            }
+          });
         });
-      });
-    }
-  );
+      }
+    );
+  });
 });
 
 // Get total articles count (with and without summaries) - with more specific path
@@ -1006,9 +1014,9 @@ app.get('/api/news-stats/all', (req, res) => {
       
       res.json({
         stats: {
-          total: row.total,
-          withSummary: row.withSummary,
-          withoutSummary: row.withoutSummary,
+          total: row.total || 0,
+          withSummary: row.withSummary || 0,
+          withoutSummary: row.withoutSummary || 0,
           percentComplete: row.total > 0 ? Math.round((row.withSummary / row.total) * 100) : 0
         }
       });
