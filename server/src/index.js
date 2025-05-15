@@ -214,21 +214,25 @@ const findPoliticianMentions = (text) => {
   const textLower = text.toLowerCase();
   
   return POLITICIANS.filter(politician => {
-    // More accurate detection with word boundary checks
-    const heNamePattern = new RegExp(`\\b${escapeRegExp(politician.he.toLowerCase())}\\b`, 'u');
-    const enNamePattern = new RegExp(`\\b${escapeRegExp(politician.en.toLowerCase())}\\b`, 'i');
-    
-    // Check main names
-    if (heNamePattern.test(textLower) || enNamePattern.test(textLower)) {
+    // Check full politician name (case insensitive)
+    if (textLower.includes(politician.he.toLowerCase())) {
       return true;
+    }
+    
+    // Check for last name if the politician name has multiple parts
+    const nameParts = politician.he.split(' ');
+    if (nameParts.length > 1) {
+      const lastName = nameParts[nameParts.length - 1];
+      if (textLower.includes(lastName.toLowerCase())) {
+        return true;
+      }
     }
     
     // Check aliases if any
     if (politician.aliases && politician.aliases.length > 0) {
-      return politician.aliases.some(alias => {
-        const aliasPattern = new RegExp(`\\b${escapeRegExp(alias.toLowerCase())}\\b`, 'u');
-        return aliasPattern.test(textLower);
-      });
+      return politician.aliases.some(alias => 
+        textLower.includes(alias.toLowerCase())
+      );
     }
     
     return false;
@@ -1252,9 +1256,23 @@ app.get('/api/news', (req, res) => {
         // Format the response
         const formattedArticles = rows.map(row => {
           // Deduplicate politician names
-          const mentionedPoliticians = row.mentionedPoliticians 
-            ? [...new Set(row.mentionedPoliticians.split(',').filter(p => p && p.trim() !== ''))]
-            : [];
+          let mentionedPoliticians = [];
+          
+          if (row.mentionedPoliticians) {
+            // If it's already an array, use it
+            if (Array.isArray(row.mentionedPoliticians)) {
+              mentionedPoliticians = [...new Set(row.mentionedPoliticians.filter(p => p && p.trim() !== ''))];
+            } 
+            // If it's a string (which is likely from GROUP_CONCAT), split it
+            else if (typeof row.mentionedPoliticians === 'string') {
+              mentionedPoliticians = [...new Set(row.mentionedPoliticians.split(',').filter(p => p && p.trim() !== ''))];
+            }
+          }
+          
+          // Log for debugging
+          if (row.id && mentionedPoliticians.length > 0) {
+            console.log(`Article ${row.id} has politicians: ${JSON.stringify(mentionedPoliticians)}`);
+          }
             
           return {
             ...row,
