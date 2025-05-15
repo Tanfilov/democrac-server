@@ -94,24 +94,50 @@ const initDatabase = () => {
     )`, (err) => {
       if (err) return reject(err);
       
-      // Create politician_mentions table
-      db.run(`CREATE TABLE IF NOT EXISTS politician_mentions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        articleId INTEGER,
-        politicianName TEXT NOT NULL,
-        FOREIGN KEY (articleId) REFERENCES articles(id)
-      )`, (err) => {
+      // Add summary column if it doesn't exist
+      db.run("PRAGMA table_info(articles)", (err, rows) => {
         if (err) return reject(err);
         
-        // Create indexes
-        db.run(`CREATE INDEX IF NOT EXISTS idx_articles_publishedAt ON articles(publishedAt)`, (err) => {
+        // Check if the summary column exists
+        db.get("SELECT COUNT(*) as count FROM pragma_table_info('articles') WHERE name = 'summary'", (err, row) => {
           if (err) return reject(err);
-          db.run(`CREATE INDEX IF NOT EXISTS idx_articles_guid ON articles(guid)`, (err) => {
-            if (err) return reject(err);
-            resolve();
-          });
+          
+          if (row.count === 0) {
+            // Add the summary column if it doesn't exist
+            db.run("ALTER TABLE articles ADD COLUMN summary TEXT", (err) => {
+              if (err) return reject(err);
+              console.log("Added summary column to articles table");
+              
+              // Continue with the rest of the initialization
+              createPoliticianMentionsTable();
+            });
+          } else {
+            // Continue with the rest of the initialization
+            createPoliticianMentionsTable();
+          }
         });
       });
+      
+      function createPoliticianMentionsTable() {
+        // Create politician_mentions table
+        db.run(`CREATE TABLE IF NOT EXISTS politician_mentions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          articleId INTEGER,
+          politicianName TEXT NOT NULL,
+          FOREIGN KEY (articleId) REFERENCES articles(id)
+        )`, (err) => {
+          if (err) return reject(err);
+          
+          // Create indexes
+          db.run(`CREATE INDEX IF NOT EXISTS idx_articles_publishedAt ON articles(publishedAt)`, (err) => {
+            if (err) return reject(err);
+            db.run(`CREATE INDEX IF NOT EXISTS idx_articles_guid ON articles(guid)`, (err) => {
+              if (err) return reject(err);
+              resolve();
+            });
+          });
+        });
+      }
     });
   });
 };
