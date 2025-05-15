@@ -25,7 +25,7 @@
   },
   {
     "Name": "ניר ברקת",
-    "Party": "ListItemIcon",
+    "Party": "הליכוד",
     "Position": "שר הכלכלה",
     "Aliases": [],
     "image": "ניר ברקת.png",
@@ -33,7 +33,7 @@
   },
   {
     "Name": "אבי דיכטר",
-    "Party": "ListItemIcon",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "אבי דיכטר.png",
@@ -41,7 +41,7 @@
   },
   {
     "Name": "ישראל כץ",
-    "Party": "ListItemIcon",
+    "Party": "הליכוד",
     "Position": "חבר הכנסת מטעם הליכוד",
     "Aliases": [],
     "image": "ישראל כץ.png",
@@ -49,7 +49,7 @@
   },
   {
     "Name": "שלמה קרעי",
-    "Party": "ListItemIcon",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "שלמה קרעי.png",
@@ -57,7 +57,7 @@
   },
   {
     "Name": "דוד ביטן",
-    "Party": "ListItemIcon",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -65,7 +65,7 @@
   },
   {
     "Name": "יולי אדלשטיין",
-    "Party": "ListItemIcon",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "יולי אדלשטיין.png",
@@ -73,23 +73,7 @@
   },
   {
     "Name": "אליהו רביבו",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "יצחק כץ",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "ישראל קץ.png",
-    "image_url": ""
-  },
-  {
-    "Name": "יואל רזבוזוב",
-    "Party": "ישראל ביתנו",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -97,7 +81,7 @@
   },
   {
     "Name": "אבי מעוז",
-    "Party": "עוצמה יהודית",
+    "Party": "נעם",
     "Position": "",
     "Aliases": [],
     "image": "אבי מעוז.png",
@@ -105,7 +89,7 @@
   },
   {
     "Name": "אופיר כץ",
-    "Party": "ListItemIcon",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -120,24 +104,8 @@
     "image_url": ""
   },
   {
-    "Name": "דוד אזולאי",
-    "Party": "ש\"ס",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "אמיר גרשטיין",
-    "Party": "עוצמה יהודית",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
     "Name": "משה סעדה",
-    "Party": "עוצמה יהודית",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -145,7 +113,7 @@
   },
   {
     "Name": "גילה גמליאל",
-    "Party": "ListItemIcon",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "גילה גמליאל.png",
@@ -153,63 +121,7 @@
   },
   {
     "Name": "אוריאל בוסו",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "אוריט סטרוק",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "אורית סטרוק.png",
-    "image_url": ""
-  },
-  {
-    "Name": "ניצן הורוביץ",
-    "Party": "מרצ",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "חנוך מילביצקי",
-    "Party": "כחול לבן",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "משה שומרון",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "אורי מקלב",
-    "Party": "יהדות התורה",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "יוסי פוגל",
     "Party": "ש\"ס",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "צבי האוזר",
-    "Party": "יהדות התורה",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -225,7 +137,7 @@
   },
   {
     "Name": "חיים ביטון",
-    "Party": "ListItemIcon",
+    "Party": "שרים שאינם חברי כנסת",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -233,15 +145,7 @@
   },
   {
     "Name": "אלי דלל",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "מוטי יוגב",
-    "Party": "הציונות הדתית",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -249,47 +153,7 @@
   },
   {
     "Name": "עמית הלוי",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "צגה מלקו",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "גלית דיסטל-אטבריאן",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "חבר הכנסת מתן פלגי",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "אורית פרקש-הכהן",
-    "Party": "הציונות הדתית",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "אלי כהן",
-    "Party": "ListItemIcon",
+    "Party": "הליכוד",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -297,7 +161,7 @@
   },
   {
     "Name": "זאב אלקין",
-    "Party": "הליכוד",
+    "Party": "הימין הממלכתי",
     "Position": "",
     "Aliases": [],
     "image": "זעב אלקין.png",
@@ -312,16 +176,8 @@
     "image_url": ""
   },
   {
-    "Name": "יעקב ליצמן",
-    "Party": "יהדות התורה",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
     "Name": "ינון אזולאי",
-    "Party": "ListItemIcon",
+    "Party": "ש\"ס",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -329,23 +185,7 @@
   },
   {
     "Name": "יואב קיש",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "מיקי זוהר",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "מוטי יחיאל",
-    "Party": "ListItemIcon",
+    "Party": "שרים שאינם חברי כנסת",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -360,104 +200,8 @@
     "image_url": ""
   },
   {
-    "Name": "דודי אמסלם",
-    "Party": "ListItemIcon",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "תמוס כהן",
-    "Party": "כחול לבן",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "גבי אשכנזי",
-    "Party": "כחול לבן",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "בני גנץ",
-    "Party": "כחול לבן",
-    "Position": "",
-    "Aliases": [],
-    "image": "בני גנץ.png",
-    "image_url": ""
-  },
-  {
-    "Name": "יעל גרמן",
-    "Party": "כחול לבן",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "יעל ארד",
-    "Party": "כחול לבן",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "דורון שפר",
-    "Party": "סיעת העבודה",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "רונן הלל",
-    "Party": "כחול לבן",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "יוסי יונה",
-    "Party": "כחול לבן",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
     "Name": "שרן השכל",
-    "Party": "תקווה חדשה",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "צמוטריץ' בצלאל",
-    "Party": "הציונות הדתית",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "רגע קבעי",
-    "Party": "ועדת הפנים והגנת הסביבה",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
-    "Name": "אוטו מילר",
-    "Party": "",
+    "Party": "המחנה הממלכתי",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -480,14 +224,6 @@
     "image_url": ""
   },
   {
-    "Name": "ואדים קריבולסקי",
-    "Party": "ListItemIcon",
-    "Position": "ראש הסגל",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
     "Name": "איתמר בן גביר",
     "Party": "עוצמה יהודית",
     "Position": "שר הבטחון הלאומי",
@@ -497,7 +233,7 @@
   },
   {
     "Name": "מיכאל מלכיאלי",
-    "Party": "ListItemIcon",
+    "Party": "ש\"ס",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -521,23 +257,15 @@
   },
   {
     "Name": "מיכל וולדיגר",
-    "Party": "מפד\"ל – הציונות הדתית",
+    "Party": "הציונות הדתית",
     "Position": "סגנית שר האוצר [1, 2]",
     "Aliases": [],
     "image": "",
     "image_url": ""
   },
   {
-    "Name": "שרן מרים השכל",
-    "Party": "תקווה חדשה",
-    "Position": "סגנית שר החוץ [1]",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
     "Name": "גדעון סער",
-    "Party": "תקווה חדשה",
+    "Party": "הימין הממלכתי",
     "Position": "",
     "Aliases": [],
     "image": "גדעון סער.png",
@@ -552,14 +280,6 @@
     "image_url": ""
   },
   {
-    "Name": "אריה דרעי",
-    "Party": "ש\"ס",
-    "Position": "שר הפנים",
-    "Aliases": [],
-    "image": "אריה דרעי.png",
-    "image_url": ""
-  },
-  {
     "Name": "משה גפני",
     "Party": "יהדות התורה",
     "Position": "",
@@ -569,7 +289,7 @@
   },
   {
     "Name": "אחמד טיבי",
-    "Party": "הרשימה המשותפת",
+    "Party": "חד\"ש - תע\"ל",
     "Position": "",
     "Aliases": [],
     "image": "אחמד טיבי.png",
@@ -584,35 +304,11 @@
     "image_url": ""
   },
   {
-    "Name": "מיכאל ביטון",
-    "Party": "כחול לבן",
-    "Position": "",
-    "Aliases": [],
-    "image": "מיכאל ביטון.png",
-    "image_url": ""
-  },
-  {
     "Name": "גדי אייזנקוט",
     "Party": "המחנה הממלכתי",
     "Position": "",
     "Aliases": [],
     "image": "גדי אייזנקוט.png",
-    "image_url": ""
-  },
-  {
-    "Name": "שמחה רוטמן",
-    "Party": "הציונות הדתית",
-    "Position": "",
-    "Aliases": [],
-    "image": "שמחה רוטמן.png",
-    "image_url": ""
-  },
-  {
-    "Name": "קטי שטרית",
-    "Party": "הליכוד",
-    "Position": "",
-    "Aliases": [],
-    "image": "קטי שטרית.png",
     "image_url": ""
   },
   {
@@ -625,7 +321,7 @@
   },
   {
     "Name": "עמיחי אליהו",
-    "Party": "עוצמה יהודית",
+    "Party": "הציונות הדתית",
     "Position": "",
     "Aliases": [],
     "image": "עמיחי אליהו.png",
@@ -656,27 +352,11 @@
     "image_url": ""
   },
   {
-    "Name": "מתן כהנה",
-    "Party": "מחנה ממלכתי",
-    "Position": "",
-    "Aliases": [],
-    "image": "מתן כהנה.png",
-    "image_url": ""
-  },
-  {
     "Name": "מירב כהן",
     "Party": "יש עתיד",
     "Position": "",
     "Aliases": [],
     "image": "מירב כהן.png",
-    "image_url": ""
-  },
-  {
-    "Name": "מירב בן ארי",
-    "Party": "ישראל ביתנו",
-    "Position": "",
-    "Aliases": [],
-    "image": "מירב בן ארי.png",
     "image_url": ""
   },
   {
@@ -696,16 +376,8 @@
     "image_url": ""
   },
   {
-    "Name": "דבי ביטון",
-    "Party": "הליכוד",
-    "Position": "",
-    "Aliases": [],
-    "image": "דבי ביטון.png",
-    "image_url": ""
-  },
-  {
     "Name": "חילי טרופר",
-    "Party": "יש עתיד",
+    "Party": "המחנה הממלכתי",
     "Position": "",
     "Aliases": [],
     "image": "חילי טרופר.png",
@@ -717,6 +389,798 @@
     "Position": "",
     "Aliases": [],
     "image": "טלי גוטליב.png",
+    "image_url": ""
+  },
+  {
+    "Name": "אביחי אברהם בוארון",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אושר שקלים",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אריאל קלנר",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "בועז ביסמוט",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "גלית דיסטל אטבריאן",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "דן אליהו יעקב אילוז",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "חוה אתי עטיה",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "חנוך דב מלביצקי",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "משה פסל",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "עפיף עבד",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "צגה צגנש מלקו",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "קטי קטרין שטרית",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "שלום דנינו",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "ששון ששי גואטה",
+    "Party": "הליכוד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אלעזר שטרן",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "בועז טופורובסקי",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "דבורה דבי ביטון",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "טטיאנה מזרסקי",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יואב סגלוביץ'",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יוראי להב הרצנו",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יסמין סאקס פרידמן",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "ירון לוי",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "מאיר כהן",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "מטי צרפתי הרכבי",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "מיקי לוי",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "מירב בן-ארי",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "משה טור פז",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "סימון דוידסון",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "קארין אלהרר",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "רון כץ",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "רם בן ברק",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "שיר מיכל סגמן",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "שלי טל מירון",
+    "Party": "יש עתיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אוהד טל",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אופיר סופר",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אורית סטרוק",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "איילת שקד",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "דניאלה דניאל וייס",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "זיו מאור",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "חיה גולדברג",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יצחק וסרלאוף",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "משה סולומון",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "סימחה רוטמן",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "רויטל פולקמן",
+    "Party": "הציונות הדתית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אלון שוסטר",
+    "Party": "המחנה הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "בנימין (בני) גנץ",
+    "Party": "המחנה הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "מיכאל בירן",
+    "Party": "המחנה הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "פנינה תמנו",
+    "Party": "המחנה הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "רם בן ברק",
+    "Party": "המחנה הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יאיר גולן",
+    "Party": "המחנה הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אורן לוטם",
+    "Party": "המחנה הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "ירון יוס",
+    "Party": "המחנה הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אייל רביב",
+    "Party": "הימין הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אריה דרמר",
+    "Party": "הימין הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "בנט נפתלי",
+    "Party": "הימין הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "עידית סילמן",
+    "Party": "הימין הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "רון קובי",
+    "Party": "הימין הממלכתי",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "ארז מלול",
+    "Party": "ש\"ס",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אריה מכלוף דרעי",
+    "Party": "ש\"ס",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יונתן מישריקי",
+    "Party": "ש\"ס",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יוסף טייב",
+    "Party": "ש\"ס",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "סימון מושיאשוילי",
+    "Party": "ש\"ס",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אליהו ברוכי",
+    "Party": "יהדות התורה",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יעקב אשר",
+    "Party": "יהדות התורה",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יצחק פינדרוס",
+    "Party": "יהדות התורה",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "משה רוט",
+    "Party": "יהדות התורה",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "חמד עמאר",
+    "Party": "ישראל ביתנו",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יבגני סובה",
+    "Party": "ישראל ביתנו",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יוליה מלינובסקי",
+    "Party": "ישראל ביתנו",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "עודד פורר",
+    "Party": "ישראל ביתנו",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "שרון ניר",
+    "Party": "ישראל ביתנו",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "איימן עודה",
+    "Party": "חד\"ש - תע\"ל",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יוסף עטאונה",
+    "Party": "חד\"ש - תע\"ל",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "עאידה תומא סלימאן",
+    "Party": "חד\"ש - תע\"ל",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "עופר כסיף",
+    "Party": "חד\"ש - תע\"ל",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אימאן ח'טיב יאסין",
+    "Party": "רע\"מ",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "ואליד אלהואשלה",
+    "Party": "רע\"מ",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "ווליד טאהא",
+    "Party": "רע\"מ",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יאסר חג'יראת",
+    "Party": "רע\"מ",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אפרת רייטן מרום",
+    "Party": "העבודה",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "מרב מיכאלי",
+    "Party": "העבודה",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יצחק קרויזר",
+    "Party": "עוצמה יהודית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יצחק שמעון וסרלאוף",
+    "Party": "עוצמה יהודית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "לימור סון הר מלך",
+    "Party": "עוצמה יהודית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "צביקה פוגל",
+    "Party": "עוצמה יהודית",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "אלי אליהו כהן",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "בצלאל סמוטריץ'",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "דוד אמסלם",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "חיים כץ",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יואב בן צור",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יעקב מרגי",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "יצחק גולדקנופ",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "מאיר פרוש",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "מירי מרים רגב",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "מכלוף מיקי זוהר",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "עידית סילמן",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "עמיחי שיקלי",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "רון דרמר",
+    "Party": "שרים שאינם חברי כנסת",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
+    "image_url": ""
+  },
+  {
+    "Name": "עידן רול",
+    "Party": "ח\"כ יחיד",
+    "Position": "",
+    "Aliases": [],
+    "image": "",
     "image_url": ""
   }
 ]
