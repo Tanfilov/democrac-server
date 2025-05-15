@@ -661,11 +661,12 @@ app.get('/', (req, res) => {
     },
     endpoints: [
       '/api/news - Get all news articles with pagination',
+      '/api/news?onlySummarized=true - Get only articles with summaries',
       '/api/news/:id - Get a specific news article',
+      '/api/news-stats/all - Get statistics about articles with and without summaries',
       '/api/summarize/:id - Generate or retrieve a summary for an article',
-      '/api/summarize-url - Generate a summary for an article by URL',
-      '/api/refresh - Trigger a manual feed update',
-      '/api/clear - Clear all news articles from the database',
+      '/api/refresh - Trigger a manual feed update (admin)',
+      '/api/clear - Clear all news articles from the database (admin)',
       '/api/politicians - Get list of politicians'
     ]
   });
@@ -713,23 +714,36 @@ app.post('/api/clear', (req, res) => {
   });
 });
 
-// Get all articles with pagination (only return articles with summaries)
+// Get all articles with pagination
 app.get('/api/news', (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
+  const onlySummarized = req.query.onlySummarized === 'true';
   
-  // Modified query to only include articles with summaries
-  db.all(
-    `SELECT 
+  // SQL query
+  let query = `
+    SELECT 
       a.*,
       GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
     FROM articles a
     LEFT JOIN politician_mentions pm ON a.id = pm.articleId
-    WHERE a.summary IS NOT NULL AND a.summary != ''
+  `;
+  
+  // Add filter for summarized articles if requested
+  if (onlySummarized) {
+    query += ` WHERE a.summary IS NOT NULL AND a.summary != '' `;
+  }
+  
+  // Complete the query
+  query += `
     GROUP BY a.id
     ORDER BY publishedAt DESC
-    LIMIT ? OFFSET ?`,
+    LIMIT ? OFFSET ?
+  `;
+  
+  db.all(
+    query,
     [limit, offset],
     (err, rows) => {
       if (err) {
@@ -737,8 +751,13 @@ app.get('/api/news', (req, res) => {
         return res.status(500).json({ error: 'Database error' });
       }
       
-      // Get total count for pagination (of articles with summaries)
-      db.get('SELECT COUNT(*) as count FROM articles WHERE summary IS NOT NULL AND summary != ""', (err, countRow) => {
+      // Get total count for pagination
+      let countQuery = 'SELECT COUNT(*) as count FROM articles';
+      if (onlySummarized) {
+        countQuery += ` WHERE summary IS NOT NULL AND summary != ''`;
+      }
+      
+      db.get(countQuery, (err, countRow) => {
         if (err) {
           console.error('Count error:', err);
           return res.status(500).json({ error: 'Database error' });
