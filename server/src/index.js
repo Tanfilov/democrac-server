@@ -321,10 +321,9 @@ const summarizeArticle = async (articleContent, title) => {
       politiciansList = politiciansData.map(p => p.Name);
     }
     
-    // Extract the first several paragraphs (up to 5) for summarization
-    // This ensures we're not just using the description
+    // Extract more paragraphs (up to 8) for summarization to get more content
     const paragraphs = articleContent.split(/\n+/).filter(p => p.trim().length > 20);
-    const contentToSummarize = paragraphs.slice(0, 5).join('\n\n');
+    const contentToSummarize = paragraphs.slice(0, 8).join('\n\n');
     
     // Estimate tokens (rough estimate: 4 chars per token)
     const estimatedPromptTokens = Math.ceil((title.length + contentToSummarize.length) / 4) + 500; // Add 500 for the prompt text
@@ -336,43 +335,47 @@ const summarizeArticle = async (articleContent, title) => {
           // For Hebrew content, use a simpler prompt that asks for plaintext first, then we'll format it as JSON
           const prompt = isHebrew
             ? `
-            You are a professional newspaper editor specializing in creating concise, informative summaries.
+            You are a professional newspaper editor specializing in creating comprehensive, informative summaries.
             
             Here is a news article in Hebrew:
             Title: ${title}
             Content: ${contentToSummarize}
             
             IMPORTANT INSTRUCTIONS:
-            1. Write a newspaper-style summary of this article in 3-5 sentences in Hebrew.
-            2. Your summary MUST be original - do NOT simply copy the first paragraph or description.
-            3. Read and analyze the full content provided to create a comprehensive summary.
-            4. Be factual and objective.
-            5. In a SEPARATE section at the end, list any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
-            6. Format your response as:
+            1. Write a comprehensive, detailed newspaper-style summary of this article in 6-10 sentences in Hebrew.
+            2. Your summary MUST be at least twice as long as a typical short summary and contain more details.
+            3. Your summary MUST be original - do NOT simply copy the first paragraph or description.
+            4. Use factual, neutral, and unbiased language typical of professional news reporting.
+            5. Include key details, statistics, quotes, and context from the article when available.
+            6. Read and analyze the full content provided to create a thorough summary.
+            7. In a SEPARATE section at the end, list any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
+            8. Format your response as:
             
             SUMMARY: 
-            [your 3-5 sentence summary here]
+            [your 6-10 sentence summary here]
             
             POLITICIANS MENTIONED: 
             [list of politicians, separated by commas]
             `
             : `
-            You are a professional newspaper editor specializing in creating concise, informative summaries.
+            You are a professional newspaper editor specializing in creating comprehensive, informative summaries.
             
             Here is a news article:
             Title: ${title}
             Content: ${contentToSummarize}
             
             IMPORTANT INSTRUCTIONS:
-            1. Write a newspaper-style summary of this article in 3-5 sentences.
-            2. Your summary MUST be original - do NOT simply copy the first paragraph or description.
-            3. Read and analyze the full content provided to create a comprehensive summary.
-            4. Be factual and objective.
-            5. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
+            1. Write a comprehensive, detailed newspaper-style summary of this article in 6-10 sentences.
+            2. Your summary MUST be at least twice as long as a typical short summary and contain more details.
+            3. Your summary MUST be original - do NOT simply copy the first paragraph or description.
+            4. Use factual, neutral, and unbiased language typical of professional news reporting.
+            5. Include key details, statistics, quotes, and context from the article when available.
+            6. Read and analyze the full content provided to create a thorough summary.
+            7. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
             
             Format your response as JSON:
             {
-              "summary": "Your original 3-5 sentence summary here...",
+              "summary": "Your original 6-10 sentence summary here...",
               "mentionedPoliticians": ["Politician Name 1", "Politician Name 2", ...]
             }
             `;
@@ -388,7 +391,7 @@ const summarizeArticle = async (articleContent, title) => {
               messages: [{ role: 'user', content: prompt }],
               model: model,
               temperature: 0.3,
-              max_tokens: 1000,
+              max_tokens: 1500, // Increased max tokens to allow for longer summaries
               response_format: responseFormat
             });
           } catch (modelError) {
@@ -399,7 +402,7 @@ const summarizeArticle = async (articleContent, title) => {
               messages: [{ role: 'user', content: prompt }],
               model: model,
               temperature: 0.3,
-              max_tokens: 1000,
+              max_tokens: 1500, // Increased max tokens to allow for longer summaries
               response_format: responseFormat
             });
           }
@@ -433,14 +436,24 @@ const summarizeArticle = async (articleContent, title) => {
             const filteredPoliticians = mentionedPoliticians.length > 0 
               ? mentionedPoliticians 
               : politiciansList.filter(p => politiciansText.includes(p));
-              
+            
+            // Ensure the summary is properly formatted
+            const formattedSummary = summary.replace(/\n{3,}/g, '\n\n').trim();  
+            
             result = {
-              summary: summary,
+              summary: formattedSummary,
               mentionedPoliticians: filteredPoliticians
             };
           } else {
-            // For English, just parse the JSON response
-            result = JSON.parse(completion.choices[0].message.content);
+            // For English, parse the JSON response
+            const parsed = JSON.parse(completion.choices[0].message.content);
+            
+            // Ensure the summary is properly formatted
+            if (parsed.summary) {
+              parsed.summary = parsed.summary.replace(/\n{3,}/g, '\n\n').trim();
+            }
+            
+            result = parsed;
           }
           
           resolve(result);
@@ -453,8 +466,16 @@ const summarizeArticle = async (articleContent, title) => {
               const failedText = error.failed_generation;
               
               // Extract summary using regex - look for text between "summary": and the next comma or closing brace
-              const summaryMatch = failedText.match(/"summary":\s*"([^"]+)"/);
-              const summary = summaryMatch ? summaryMatch[1] : '';
+              // Use a more robust regex that can capture multi-line summaries with quotes
+              const summaryMatch = failedText.match(/"summary":\s*"((?:\\"|[^"])+)"/);
+              const rawSummary = summaryMatch ? summaryMatch[1] : '';
+              
+              // Clean up the summary - unescape quotes and ensure proper formatting
+              const summary = rawSummary
+                .replace(/\\"/g, '"')
+                .replace(/\\\\/g, '\\')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
               
               // Extract politicians using regex - look for array after "mentionedPoliticians":
               const politiciansMatch = failedText.match(/"mentionedPoliticians":\s*\[(.*?)\]/);
