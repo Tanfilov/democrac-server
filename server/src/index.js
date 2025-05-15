@@ -900,118 +900,126 @@ app.post('/api/clear', (req, res) => {
 
 // Get all articles with pagination
 app.get('/api/news', (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  const offset = (page - 1) * limit;
-  const onlySummarized = req.query.onlySummarized === 'true';
-  
-  // Check if summary column exists in the table
-  db.get("SELECT COUNT(*) as count FROM pragma_table_info('articles') WHERE name = 'summary'", (err, summaryExists) => {
-    if (err) {
-      console.error('Error checking summary column:', err);
-      return res.status(500).json({ error: 'Database error' });
-    }
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    const onlySummarized = req.query.onlySummarized === 'true';
     
-    // SQL query
-    let query = `
+    // Basic query without filtering for summaries first
+    const baseQuery = `
       SELECT 
         a.*,
         GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
       FROM articles a
       LEFT JOIN politician_mentions pm ON a.id = pm.articleId
-    `;
-    
-    // Add filters
-    let whereClause = [];
-    
-    // Filter for summarized articles if requested and if summary column exists
-    if (onlySummarized && summaryExists.count > 0) {
-      whereClause.push(`a.summary IS NOT NULL AND a.summary != ''`);
-    } else if (onlySummarized && summaryExists.count === 0) {
-      // If summary column doesn't exist but onlySummarized is requested,
-      // return empty result set instead of error
-      return res.json({
-        news: [],
-        pagination: {
-          page,
-          pages: 0,
-          total: 0
-        }
-      });
-    }
-    
-    // Filter out articles with empty descriptions or fewer than 10 words
-    whereClause.push(`a.description IS NOT NULL AND a.description != '' AND (LENGTH(a.description) - LENGTH(REPLACE(a.description, ' ', '')) + 1) >= 10`);
-    
-    // Apply where clause if we have conditions
-    if (whereClause.length > 0) {
-      query += ` WHERE ${whereClause.join(' AND ')}`;
-    }
-    
-    // Complete the query
-    query += `
+      WHERE a.description IS NOT NULL AND a.description != '' 
+      AND (LENGTH(a.description) - LENGTH(REPLACE(a.description, ' ', '')) + 1) >= 10
       GROUP BY a.id
       ORDER BY publishedAt DESC
       LIMIT ? OFFSET ?
     `;
     
-    try {
-      db.all(
-        query,
-        [limit, offset],
-        (err, rows) => {
-          if (err) {
-            console.error('Database error:', err);
-            console.error('Query that failed:', query);
-            return res.status(500).json({ error: 'Database error' });
-          }
-          
-          // Get total count for pagination
-          let countQuery = 'SELECT COUNT(*) as count FROM articles';
-          
-          // Add the same filters to the count query
-          if (whereClause.length > 0) {
-            countQuery += ` WHERE ${whereClause.join(' AND ')}`;
-          }
-          
-          db.get(countQuery, (err, countRow) => {
-            if (err) {
-              console.error('Count error:', err);
-              return res.status(500).json({ error: 'Database error' });
-            }
-            
-            const total = countRow.count || 0;
-            const totalPages = Math.ceil(total / limit);
-            
-            // Format the response
-            const articles = rows.map(row => {
-              // Deduplicate politician names
-              const mentionedPoliticians = row.mentionedPoliticians 
-                ? [...new Set(row.mentionedPoliticians.split(','))]
-                : [];
-                
-              return {
-                ...row,
-                mentionedPoliticians
-              };
-            });
-            
-            res.json({
-              news: articles,
-              pagination: {
-                page,
-                pages: totalPages,
-                total
-              }
-            });
-          });
+    // First get all articles without summary filtering
+    db.all(baseQuery, [limit, offset], (err, allRows) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      // Filter articles with summaries if needed
+      let filteredRows = allRows;
+      if (onlySummarized) {
+        filteredRows = allRows.filter(row => 
+          row.summary !== null && 
+          row.summary !== undefined && 
+          row.summary.trim() !== ''
+        );
+      }
+      
+      // Count total for pagination - NO TABLE ALIAS here
+      const countQuery = `
+        SELECT COUNT(*) as count 
+        FROM articles 
+        WHERE description IS NOT NULL AND description != '' 
+        AND (LENGTH(description) - LENGTH(REPLACE(description, ' ', '')) + 1) >= 10
+      `;
+      
+      db.get(countQuery, (err, countRow) => {
+        if (err) {
+          console.error('Count error:', err);
+          console.error('Failed query:', countQuery);
+          return res.status(500).json({ error: 'Database error' });
         }
-      );
-    } catch (error) {
-      console.error('Unexpected error in /api/news:', error);
-      return res.status(500).json({ error: 'Server error', details: error.message });
-    }
-  });
+        
+        // Get total count with the same filtering logic
+        let total = countRow.count;
+        let effectiveTotal = total;
+        
+        // If we're filtering for summarized articles, count those too - NO TABLE ALIAS here
+        if (onlySummarized) {
+          const summaryCountQuery = `
+            SELECT COUNT(*) as count 
+            FROM articles 
+            WHERE summary IS NOT NULL AND summary != '' 
+            AND description IS NOT NULL AND description != '' 
+            AND (LENGTH(description) - LENGTH(REPLACE(description, ' ', '')) + 1) >= 10
+          `;
+          
+          // It's possible the summary column doesn't exist yet
+          try {
+            db.get(summaryCountQuery, (err, summaryCountRow) => {
+              if (err) {
+                console.error('Error counting summarized articles:', err);
+                console.error('Failed query:', summaryCountQuery);
+                // If there's an error, the column might not exist yet
+                effectiveTotal = 0;
+              } else {
+                effectiveTotal = summaryCountRow.count || 0;
+              }
+              
+              finishResponse(filteredRows, total, effectiveTotal);
+            });
+          } catch (error) {
+            console.error('Error counting articles with summaries:', error);
+            // If there's an error, assume no summarized articles
+            finishResponse(filteredRows, total, 0);
+          }
+        } else {
+          finishResponse(filteredRows, total, total);
+        }
+      });
+      
+      function finishResponse(articles, total, effectiveTotal) {
+        const totalPages = Math.ceil(effectiveTotal / limit);
+        
+        // Format the response
+        const formattedArticles = articles.map(row => {
+          // Deduplicate politician names
+          const mentionedPoliticians = row.mentionedPoliticians 
+            ? [...new Set(row.mentionedPoliticians.split(','))]
+            : [];
+            
+          return {
+            ...row,
+            mentionedPoliticians
+          };
+        });
+        
+        res.json({
+          news: formattedArticles,
+          pagination: {
+            page,
+            pages: totalPages,
+            total: effectiveTotal
+          }
+        });
+      }
+    });
+  } catch (error) {
+    console.error('Unexpected error in /api/news:', error);
+    return res.status(500).json({ error: 'Server error', details: error.message });
+  }
 });
 
 // Get total articles count (with and without summaries) - with more specific path
