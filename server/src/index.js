@@ -766,8 +766,8 @@ app.get('/api/news', (req, res) => {
   );
 });
 
-// Get total articles count (with and without summaries)
-app.get('/api/news/stats', (req, res) => {
+// Get total articles count (with and without summaries) - with more specific path
+app.get('/api/news-stats/all', (req, res) => {
   db.get(
     `SELECT 
       COUNT(*) as total,
