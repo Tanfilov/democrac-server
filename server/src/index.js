@@ -45,7 +45,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const UPDATE_INTERVAL = parseInt(process.env.UPDATE_INTERVAL || 300000); // Default: 5 minutes
 const DB_PATH = process.env.DB_PATH || './data/news.db';
-const AUTO_SUMMARIZE = process.env.AUTO_SUMMARIZE !== 'false'; // Default: true
+const AUTO_SUMMARIZE = false; // Temporarily disabled
 
 // Ensure data directory exists
 const dataDir = path.dirname(DB_PATH);
@@ -203,10 +203,115 @@ const extractCleanDescription = (item, source) => {
 
 // Find politician mentions in text
 const findPoliticianMentions = (text) => {
+  if (!text) return [];
+  
   return POLITICIANS.filter(politician => {
     return text.toLowerCase().includes(politician.he.toLowerCase()) || 
            text.toLowerCase().includes(politician.en.toLowerCase());
   }).map(p => p.he);
+};
+
+// Enhanced politician detection using existing data
+const enhancedPoliticianDetection = async (article) => {
+  // Step 1: Check title and description
+  let detectedPoliticians = [];
+  
+  // Check title
+  if (article.title) {
+    const titlePoliticians = findPoliticianMentions(article.title);
+    detectedPoliticians = [...detectedPoliticians, ...titlePoliticians];
+  }
+  
+  // Check description
+  if (article.description) {
+    const descriptionPoliticians = findPoliticianMentions(article.description);
+    detectedPoliticians = [...detectedPoliticians, ...descriptionPoliticians];
+  }
+  
+  // Step 2: If we have content already, check it
+  if (article.content && article.content.length > 50) {
+    const contentPoliticians = findPoliticianMentions(article.content);
+    detectedPoliticians = [...detectedPoliticians, ...contentPoliticians];
+  } 
+  // If we don't have sufficient content, scrape it
+  else if (article.link) {
+    try {
+      console.log(`Scraping content for politician detection from: ${article.link}`);
+      const scrapedContent = await scrapeArticleContent(article.link);
+      
+      if (scrapedContent && scrapedContent.length > 50) {
+        // Update the article content in the database
+        await new Promise((resolve, reject) => {
+          db.run('UPDATE articles SET content = ? WHERE id = ?', [scrapedContent, article.id], (err) => {
+            if (err) {
+              console.error('Error updating article content:', err);
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
+        });
+        
+        // Check for politicians in the scraped content
+        const scrapedContentPoliticians = findPoliticianMentions(scrapedContent);
+        detectedPoliticians = [...detectedPoliticians, ...scrapedContentPoliticians];
+      }
+    } catch (error) {
+      console.error(`Error scraping content for politician detection: ${error.message}`);
+    }
+  }
+  
+  // Return unique politicians
+  return [...new Set(detectedPoliticians)];
+};
+
+// Update politician mentions for an article
+const updatePoliticianMentions = async (articleId, politicians) => {
+  if (!articleId || !politicians || politicians.length === 0) return;
+  
+  try {
+    // Get existing mentions for this article
+    const existingMentions = await new Promise((resolve, reject) => {
+      db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows ? rows.map(row => row.politicianName) : []);
+        }
+      });
+    });
+    
+    // Find new mentions to add
+    const newMentions = politicians.filter(p => !existingMentions.includes(p));
+    
+    if (newMentions.length > 0) {
+      // Create values string for SQL INSERT
+      const mentionValues = newMentions.map(name => 
+        `(${articleId}, '${name.replace(/'/g, "''")}')`
+      ).join(',');
+      
+      // Insert new mentions
+      await new Promise((resolve, reject) => {
+        db.run(
+          `INSERT INTO politician_mentions (articleId, politicianName) VALUES ${mentionValues}`,
+          (err) => {
+            if (err) {
+              console.error('Error inserting politician mentions:', err);
+              reject(err);
+            } else {
+              console.log(`Added ${newMentions.length} new politician mentions for article ${articleId}`);
+              resolve();
+            }
+          }
+        );
+      });
+    }
+    
+    return newMentions.length;
+  } catch (error) {
+    console.error(`Error updating politician mentions: ${error.message}`);
+    return 0;
+  }
 };
 
 // Scrape article content from URL
@@ -599,9 +704,9 @@ const insertArticle = (article, mentions) => {
 const processBatchForSummarization = async (articleIds, maxBatchSize = 5) => {
   if (!articleIds.length) return;
   
-  console.log(`Processing batch of ${articleIds.length} articles for summarization`);
+  console.log(`Processing batch of ${articleIds.length} articles for politician detection`);
   
-  // Process in smaller batches to avoid overwhelming the API
+  // Process in smaller batches to avoid overwhelming the system
   for (let i = 0; i < articleIds.length; i += maxBatchSize) {
     const batch = articleIds.slice(i, i + maxBatchSize);
     
@@ -622,9 +727,22 @@ const processBatchForSummarization = async (articleIds, maxBatchSize = 5) => {
             return;
           }
           
-          console.log(`Auto-generating summary for article ID: ${articleId}`);
+          console.log(`Processing enhanced politician detection for article ID: ${articleId}`);
           
+          // Enhanced politician detection
+          const detectedPoliticians = await enhancedPoliticianDetection(article);
+          
+          // Update the article's politician mentions
+          if (detectedPoliticians.length > 0) {
+            const addedCount = await updatePoliticianMentions(articleId, detectedPoliticians);
+            if (addedCount > 0) {
+              console.log(`Added ${addedCount} new politician mentions for article ${articleId}`);
+            }
+          }
+          
+          // TEMPORARILY DISABLED: Summarization
           // Scrape full content if needed
+          /* 
           let articleContent = article.content;
           if (!articleContent || articleContent.length < 200) {
             const scrapedContent = await scrapeArticleContent(article.link);
@@ -682,8 +800,9 @@ const processBatchForSummarization = async (articleIds, maxBatchSize = 5) => {
               }
             }
           }
+          */
         } catch (error) {
-          console.error(`Error processing article ${articleId} for summarization:`, error);
+          console.error(`Error processing article ${articleId} for politician detection:`, error);
         }
       })
     );
@@ -700,8 +819,8 @@ const updateFeeds = async () => {
   console.log('Fetching RSS feeds...');
   
   try {
-    // Track articles that need summarization
-    const articlesToSummarize = [];
+    // Track articles for politician detection
+    const articlesToProcess = [];
     
     for (const source of NEWS_SOURCES) {
       try {
@@ -730,12 +849,13 @@ const updateFeeds = async () => {
             summary: '' // Initialize with empty summary
           };
           
-          const mentions = findPoliticianMentions(article.title + ' ' + article.content);
+          // Initial simple politician detection
+          const mentions = findPoliticianMentions(article.title + ' ' + article.description + ' ' + article.content);
           const articleId = await insertArticle(article, mentions);
           
-          // If a new article was inserted, add it to the summarization queue
-          if (articleId && AUTO_SUMMARIZE && groq) {
-            articlesToSummarize.push(articleId);
+          // If a new article was inserted, add it to the processing queue for enhanced detection
+          if (articleId) {
+            articlesToProcess.push(articleId);
           }
         }
         
@@ -747,9 +867,9 @@ const updateFeeds = async () => {
     
     console.log('RSS feed update completed');
     
-    // Process articles for summarization
-    if (articlesToSummarize.length > 0 && AUTO_SUMMARIZE && groq) {
-      processBatchForSummarization(articlesToSummarize);
+    // Process articles for enhanced politician detection
+    if (articlesToProcess.length > 0) {
+      processBatchForSummarization(articlesToProcess);
     }
   } catch (error) {
     console.error('Error updating feeds:', error);
@@ -772,6 +892,46 @@ app.post('/api/summarize/:id', async (req, res) => {
         return res.status(404).json({ error: 'Article not found' });
       }
       
+      // TEMPORARILY MODIFIED: Run enhanced politician detection instead of summarization
+      console.log(`Running enhanced politician detection for article ID: ${articleId}`);
+      
+      // Run enhanced politician detection
+      const detectedPoliticians = await enhancedPoliticianDetection(article);
+      
+      // Update the article's politician mentions
+      const addedCount = await updatePoliticianMentions(articleId, detectedPoliticians);
+      
+      // Get full list of politicians for this article
+      const allPoliticians = await new Promise((resolve, reject) => {
+        db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(rows ? rows.map(row => row.politicianName) : []);
+          }
+        });
+      });
+      
+      // Return the detected politicians
+      res.json({
+        success: true,
+        article: {
+          id: article.id,
+          title: article.title,
+          description: article.description,
+          link: article.link,
+          source: article.source,
+          publishedAt: article.publishedAt
+        },
+        politicians: {
+          detected: detectedPoliticians,
+          newlyAdded: addedCount > 0 ? detectedPoliticians.filter(p => allPoliticians.includes(p)).slice(-addedCount) : [],
+          all: allPoliticians
+        },
+        message: 'Enhanced politician detection completed'
+      });
+      
+      /* TEMPORARILY DISABLED: Summarization
       // If article already has a summary, return it
       if (article.summary) {
         return res.json({ 
@@ -837,6 +997,7 @@ app.post('/api/summarize/:id', async (req, res) => {
           message: 'Summary generated and saved'
         });
       });
+      */
     });
   } catch (error) {
     console.error('Error in summarize endpoint:', error);
@@ -858,6 +1019,7 @@ app.get('/', (req, res) => {
     endpoints: [
       '/api/news - Get all news articles with pagination',
       '/api/news?onlySummarized=true - Get only articles with summaries',
+      '/api/news/politicians - Get only articles with politician mentions',
       '/api/news/:id - Get a specific news article',
       '/api/news-stats/all - Get statistics about articles with and without summaries',
       '/api/summarize/:id - Generate or retrieve a summary for an article',
@@ -1171,6 +1333,81 @@ app.post('/api/debug/test-groq', async (req, res) => {
       message: error.message,
       stack: error.stack
     });
+  }
+});
+
+// Add a new endpoint for articles with politician mentions
+app.get('/api/news/politicians', (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+    
+    // Query for articles with politician mentions
+    const query = `
+      SELECT 
+        a.*,
+        GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
+      FROM articles a
+      INNER JOIN politician_mentions pm ON a.id = pm.articleId
+      WHERE a.description IS NOT NULL AND a.description != '' 
+      AND (LENGTH(a.description) - LENGTH(REPLACE(a.description, ' ', '')) + 1) >= 10
+      GROUP BY a.id
+      ORDER BY publishedAt DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    db.all(query, [limit, offset], (err, rows) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      // Count total for pagination
+      const countQuery = `
+        SELECT COUNT(DISTINCT a.id) as count 
+        FROM articles a
+        INNER JOIN politician_mentions pm ON a.id = pm.articleId
+        WHERE description IS NOT NULL AND description != '' 
+        AND (LENGTH(description) - LENGTH(REPLACE(description, ' ', '')) + 1) >= 10
+      `;
+      
+      db.get(countQuery, (err, countRow) => {
+        if (err) {
+          console.error('Count error:', err);
+          console.error('Failed query:', countQuery);
+          return res.status(500).json({ error: 'Database error' });
+        }
+        
+        const total = countRow.count || 0;
+        const totalPages = Math.ceil(total / limit);
+        
+        // Format the response
+        const formattedArticles = rows.map(row => {
+          // Deduplicate politician names
+          const mentionedPoliticians = row.mentionedPoliticians 
+            ? [...new Set(row.mentionedPoliticians.split(','))]
+            : [];
+            
+          return {
+            ...row,
+            mentionedPoliticians
+          };
+        });
+        
+        res.json({
+          news: formattedArticles,
+          pagination: {
+            page,
+            pages: totalPages,
+            total
+          }
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Unexpected error in /api/news/politicians:', error);
+    return res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 
