@@ -440,9 +440,12 @@ const summarizeArticle = async (articleContent, title) => {
             // Ensure the summary is properly formatted
             const formattedSummary = summary.replace(/\n{3,}/g, '\n\n').trim();  
             
+            // Deduplicate politician names
+            const uniquePoliticians = [...new Set(filteredPoliticians)];
+            
             result = {
               summary: formattedSummary,
-              mentionedPoliticians: filteredPoliticians
+              mentionedPoliticians: uniquePoliticians
             };
           } else {
             // For English, parse the JSON response
@@ -451,6 +454,11 @@ const summarizeArticle = async (articleContent, title) => {
             // Ensure the summary is properly formatted
             if (parsed.summary) {
               parsed.summary = parsed.summary.replace(/\n{3,}/g, '\n\n').trim();
+            }
+            
+            // Deduplicate politician names
+            if (parsed.mentionedPoliticians && Array.isArray(parsed.mentionedPoliticians)) {
+              parsed.mentionedPoliticians = [...new Set(parsed.mentionedPoliticians)];
             }
             
             result = parsed;
@@ -487,11 +495,14 @@ const summarizeArticle = async (articleContent, title) => {
                 .map(p => p.trim().replace(/"/g, ''))
                 .filter(p => p.length > 0);
               
+              // Deduplicate politician names
+              const uniquePoliticians = [...new Set(mentionedPoliticians)];
+              
               // Only resolve with summary if we actually extracted something
               if (summary) {
                 resolve({
                   summary,
-                  mentionedPoliticians
+                  mentionedPoliticians: uniquePoliticians
                 });
               } else {
                 // If we couldn't extract a valid summary, return empty
@@ -927,10 +938,17 @@ app.get('/api/news', (req, res) => {
         const totalPages = Math.ceil(total / limit);
         
         // Format the response
-        const articles = rows.map(row => ({
-          ...row,
-          mentionedPoliticians: row.mentionedPoliticians ? row.mentionedPoliticians.split(',') : []
-        }));
+        const articles = rows.map(row => {
+          // Deduplicate politician names
+          const mentionedPoliticians = row.mentionedPoliticians 
+            ? [...new Set(row.mentionedPoliticians.split(','))]
+            : [];
+            
+          return {
+            ...row,
+            mentionedPoliticians
+          };
+        });
         
         res.json({
           news: articles,
@@ -995,10 +1013,12 @@ app.get('/api/news/:id', (req, res) => {
         return res.status(404).json({ error: 'Article not found' });
       }
       
-      // Format the response
+      // Format the response with deduplicated politician names
       const article = {
         ...row,
-        mentionedPoliticians: row.mentionedPoliticians ? row.mentionedPoliticians.split(',') : []
+        mentionedPoliticians: row.mentionedPoliticians 
+          ? [...new Set(row.mentionedPoliticians.split(','))]
+          : []
       };
       
       // Check if the article has an insufficient description
