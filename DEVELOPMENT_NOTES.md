@@ -12,6 +12,13 @@
 - Localhost (http://localhost:3000) is only used for local testing
 - All production code must be designed to work with the Render deployment environment
 
+## Package Management
+- **IMPORTANT**: The project has two package.json files:
+  - Root `/package.json` - Used for local development
+  - Server `/server/package.json` - Used by Render for deployment
+- When adding new dependencies, make sure to add them to **both** package.json files
+- Run `npm install` in both root and server directories after pulling changes
+
 ## Common Operations
 
 ### Server Management
