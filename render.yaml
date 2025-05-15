@@ -17,3 +17,5 @@ services:
         value: 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
       - key: ADMIN_API_KEY
         value: YourSecretKeyHere123
+      - key: AUTO_SUMMARIZE
+        value: "true"

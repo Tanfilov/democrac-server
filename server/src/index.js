@@ -33,6 +33,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const UPDATE_INTERVAL = parseInt(process.env.UPDATE_INTERVAL || 300000); // Default: 5 minutes
 const DB_PATH = process.env.DB_PATH || './data/news.db';
+const AUTO_SUMMARIZE = process.env.AUTO_SUMMARIZE !== 'false'; // Default: true
 
 // Ensure data directory exists
 const dataDir = path.dirname(DB_PATH);
@@ -323,8 +324,8 @@ const updateFeeds = async () => {
           const mentions = findPoliticianMentions(article.title + ' ' + article.content);
           const articleId = await insertArticle(article, mentions);
           
-          // Auto-generate summary for new articles if enabled
-          if (articleId && process.env.AUTO_SUMMARIZE === 'true' && groq) {
+          // Auto-generate summary for new articles
+          if (articleId && AUTO_SUMMARIZE && groq) {
             try {
               console.log(`Auto-generating summary for new article ID: ${articleId}`);
               // Scrape full content if needed
@@ -476,7 +477,6 @@ app.get('/', (req, res) => {
       '/api/news/:id - Get a specific news article',
       '/api/summarize/:id - Generate or retrieve a summary for an article',
       '/api/summarize-url - Generate a summary for an article by URL',
-      '/api/summarize-all - Bulk generate summaries for all articles without summaries (admin)',
       '/api/refresh - Trigger a manual feed update',
       '/api/clear - Clear all news articles from the database',
       '/api/politicians - Get list of politicians'
@@ -484,124 +484,28 @@ app.get('/', (req, res) => {
   });
 });
 
-// Bulk generate summaries for all articles without summaries
-app.post('/api/summarize-all', async (req, res) => {
-  try {
-    // Check if API key is provided (simple auth)
-    const apiKey = req.headers['x-api-key'] || req.query.apiKey;
-    if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
-      return res.status(401).json({ error: 'Unauthorized - API key required' });
-    }
-    
-    // Check if Groq is initialized
-    if (!groq) {
-      return res.status(500).json({ error: 'Groq API not configured' });
-    }
-    
-    // Get articles without summaries
-    db.all(
-      `SELECT id, title, content, link FROM articles WHERE summary IS NULL OR summary = '' LIMIT 50`,
-      async (err, articles) => {
-        if (err) {
-          console.error('Database error:', err);
-          return res.status(500).json({ error: 'Database error' });
-        }
-        
-        console.log(`Found ${articles.length} articles without summaries. Processing...`);
-        
-        // Start processing in the background
-        res.json({ 
-          status: 'processing', 
-          message: `Started processing ${articles.length} articles in the background`,
-          articles: articles.map(a => ({ id: a.id, title: a.title }))
-        });
-        
-        // Process each article
-        let successCount = 0;
-        let errorCount = 0;
-        
-        for (const article of articles) {
-          try {
-            // Scrape content if needed
-            let articleContent = article.content;
-            if (!articleContent || articleContent.length < 200) {
-              try {
-                const scrapedContent = await scrapeArticleContent(article.link);
-                if (scrapedContent && scrapedContent.content) {
-                  articleContent = scrapedContent.content;
-                  
-                  // Update the content in the database
-                  db.run('UPDATE articles SET content = ? WHERE id = ?', [
-                    scrapedContent.content, article.id
-                  ]);
-                }
-              } catch (scrapeError) {
-                console.error(`Error scraping content for article ${article.id}:`, scrapeError);
-              }
-            }
-            
-            // Generate summary
-            const { summary, mentionedPoliticians } = await summarizeArticle(articleContent, article.title);
-            
-            if (summary) {
-              // Update article with summary
-              db.run('UPDATE articles SET summary = ? WHERE id = ?', [summary, article.id]);
-              
-              // Update politician mentions
-              if (mentionedPoliticians && mentionedPoliticians.length > 0) {
-                db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [article.id], (err, rows) => {
-                  if (err) {
-                    console.error(`Error getting existing mentions for article ${article.id}:`, err);
-                    return;
-                  }
-                  
-                  const existingMentions = rows ? rows.map(row => row.politicianName) : [];
-                  const newMentions = mentionedPoliticians.filter(p => !existingMentions.includes(p));
-                  
-                  if (newMentions.length > 0) {
-                    const mentionValues = newMentions.map(name => 
-                      `(${article.id}, '${name.replace(/'/g, "''")}')`
-                    ).join(',');
-                    
-                    db.run(
-                      `INSERT INTO politician_mentions (articleId, politicianName) VALUES ${mentionValues}`,
-                      function(err) {
-                        if (err) {
-                          console.error(`Error inserting mentions for article ${article.id}:`, err);
-                        }
-                      }
-                    );
-                  }
-                });
-              }
-              
-              successCount++;
-              console.log(`Successfully summarized article ${article.id}: ${article.title}`);
-            } else {
-              errorCount++;
-              console.error(`Failed to generate summary for article ${article.id}`);
-            }
-          } catch (error) {
-            errorCount++;
-            console.error(`Error processing article ${article.id}:`, error);
-          }
-          
-          // Add a small delay between requests to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-        console.log(`Bulk summarization completed. Success: ${successCount}, Errors: ${errorCount}`);
-      }
-    );
-  } catch (error) {
-    console.error('Error in summarize-all endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
+// Manual trigger to update feeds
+app.post('/api/refresh', (req, res) => {
+  // Check if API key is provided (simple auth)
+  const apiKey = req.headers['x-admin-api-key'] || req.query.apiKey;
+  if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized - Admin API key required' });
   }
+  
+  console.log('Manual refresh triggered');
+  updateFeeds().catch(err => console.error('Error refreshing feeds:', err));
+  res.json({ message: 'Feed refresh triggered' });
 });
 
-// Special temporary route to clear database (delete this after use)
-app.get('/clear-all-now', (req, res) => {
-  console.log('Emergency clearing all news articles...');
+// API endpoint to clear all articles (requires admin API key)
+app.post('/api/clear', (req, res) => {
+  // Check if API key is provided (simple auth)
+  const apiKey = req.headers['x-admin-api-key'] || req.query.apiKey;
+  if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized - Admin API key required' });
+  }
+  
+  console.log('Clearing all news articles...');
   
   // Delete from politician_mentions first (foreign key constraint)
   db.run('DELETE FROM politician_mentions', (err) => {
@@ -617,55 +521,9 @@ app.get('/clear-all-now', (req, res) => {
         return res.status(500).json({ error: 'Failed to clear database' });
       }
       
-      updateFeeds().catch(err => console.error('Error refreshing feeds:', err));
-      
-      res.json({ message: 'All news articles cleared successfully and refresh triggered' });
+      res.json({ message: 'All news articles cleared successfully' });
     });
   });
-});
-
-// Manual trigger to update feeds
-app.post('/api/refresh', async (req, res) => {
-  try {
-    console.log('Manual refresh triggered');
-    
-    // Start the update process asynchronously 
-    updateFeeds().catch(err => console.error('Error in background feed update:', err));
-    
-    // Respond immediately
-    res.json({ message: 'Feed update triggered' });
-  } catch (error) {
-    console.error('Error triggering feed update:', error);
-    res.status(500).json({ error: 'Failed to trigger feed update' });
-  }
-});
-
-// Clear all news articles
-app.post('/api/clear', async (req, res) => {
-  try {
-    console.log('Clearing all news articles...');
-    
-    // Delete from politician_mentions first (foreign key constraint)
-    db.run('DELETE FROM politician_mentions', (err) => {
-      if (err) {
-        console.error('Error clearing politician mentions:', err);
-        return res.status(500).json({ error: 'Failed to clear database' });
-      }
-      
-      // Then delete from articles
-      db.run('DELETE FROM articles', (err) => {
-        if (err) {
-          console.error('Error clearing articles:', err);
-          return res.status(500).json({ error: 'Failed to clear database' });
-        }
-        
-        res.json({ message: 'All news articles cleared successfully' });
-      });
-    });
-  } catch (error) {
-    console.error('Error clearing database:', error);
-    res.status(500).json({ error: 'Failed to clear database' });
-  }
 });
 
 // Get all articles with pagination
