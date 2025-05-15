@@ -34,4 +34,24 @@ git commit -m "Descriptive message"
 git push origin main
 
 # After pushing, Render will automatically deploy the changes
-``` 
+```
+
+## API Endpoints Reference
+
+### News Retrieval
+- `GET /api/news` - Get all news with parameters: page, limit, onlySummarized, onlyWithPoliticians, sort, order
+- `GET /api/news/:id` - Get a specific news article
+
+### Politician Detection
+- `GET /api/politicians` - Get list of all tracked politicians
+- `POST /api/summarize/:id` - Run enhanced politician detection for a specific article
+
+### Statistics
+- `GET /api/news-stats/all` - Get statistics about articles
+
+### Administrative Endpoints (requires API key)
+- `POST /api/refresh` - Trigger manual feed update
+- `POST /api/clear` - Clear all news articles
+- `POST /api/reset-politicians` - Reset politician mentions and reprocess
+
+For detailed documentation, see `api-endpoints.md` 
