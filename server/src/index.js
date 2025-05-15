@@ -9,6 +9,24 @@ const path = require('path');
 const { format } = require('date-fns');
 const fs = require('fs');
 const { htmlToText } = require('html-to-text');
+const Groq = require('groq-sdk');
+const axios = require('axios');
+const cheerio = require('cheerio');
+
+// Initialize Groq client (conditionally)
+let groq = null;
+try {
+  if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'YOUR_GROQ_API_KEY') {
+    groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY,
+    });
+    console.log('Groq client initialized successfully');
+  } else {
+    console.warn('GROQ_API_KEY not set or using placeholder value. Summarization will be disabled.');
+  }
+} catch (error) {
+  console.warn('Failed to initialize Groq client:', error.message);
+}
 
 // Initialize Express app
 const app = express();
@@ -58,7 +76,8 @@ const initDatabase = () => {
       source TEXT NOT NULL,
       publishedAt TEXT NOT NULL,
       guid TEXT UNIQUE,
-      createdAt TEXT NOT NULL
+      createdAt TEXT NOT NULL,
+      summary TEXT
     )`, (err) => {
       if (err) return reject(err);
       
@@ -151,15 +170,213 @@ const findPoliticianMentions = (text) => {
   }).map(p => p.he);
 };
 
+// Scrape article content from URL
+const scrapeArticleContent = async (url) => {
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+    
+    const $ = cheerio.load(response.data);
+    
+    // Remove unnecessary elements
+    $('script, style, nav, header, footer, aside, iframe, .advertisement, .ads, .comments').remove();
+    
+    // Get the article title
+    const title = $('h1').first().text().trim();
+    
+    // Extract the main content (this may need adjustment based on the specific news sites)
+    let mainContent = '';
+    
+    // For Ynet articles - need more specific selectors to get the complete article
+    if (url.includes('ynet.co.il')) {
+      // Get article content - Ynet stores article text in specific elements
+      $('.text_editor_paragraph, .art_content, .art_body').each((i, el) => {
+        const text = $(el).text().trim();
+        if (text) {
+          mainContent += text + ' ';
+        }
+      });
+      
+      // If we didn't get content with specific selectors, try more general ones
+      if (!mainContent.trim()) {
+        $('.article_inner_text, .art_body, article, .article-text').each((i, el) => {
+          const text = $(el).text().trim();
+          if (text) {
+            mainContent += text + ' ';
+          }
+        });
+      }
+      
+      // If still empty, find all paragraph elements in the main content area
+      if (!mainContent.trim()) {
+        $('article p, .article_content p, .article-body p, #art_body p').each((i, el) => {
+          const text = $(el).text().trim();
+          if (text) {
+            mainContent += text + ' ';
+          }
+        });
+      }
+      
+      // Last resort - get all paragraphs
+      if (!mainContent.trim()) {
+        $('p').each((i, el) => {
+          const text = $(el).text().trim();
+          if (text && text.length > 20) { // Avoid short menu items, etc.
+            mainContent += text + ' ';
+          }
+        });
+      }
+    } 
+    // For Mako articles
+    else if (url.includes('mako.co.il')) {
+      mainContent = $('.article-body').text() || $('.article').text();
+    }
+    // Generic fallback
+    if (!mainContent.trim()) {
+      mainContent = $('article').text() || $('main').text() || $('body').text();
+    }
+    
+    // Clean up the text
+    mainContent = mainContent.replace(/\s+/g, ' ').trim();
+    
+    return { title, content: mainContent };
+  } catch (error) {
+    console.error(`Error scraping article content from ${url}:`, error);
+    return { title: '', content: '' };
+  }
+};
+
+// Summarize article using Groq API
+const summarizeArticle = async (articleContent, title) => {
+  try {
+    if (!groq) {
+      console.warn('Groq client not initialized. Skipping summarization.');
+      return { summary: 'Summarization is disabled (API key not configured)', mentionedPoliticians: [] };
+    }
+
+    if (!articleContent || articleContent.trim().length === 0) {
+      return { summary: '', mentionedPoliticians: [] };
+    }
+    
+    // Load politicians data for detection
+    const politiciansPath = path.join(__dirname, '../../data/politicians/politicians.json');
+    let politiciansList = [];
+    
+    if (fs.existsSync(politiciansPath)) {
+      const politiciansData = JSON.parse(fs.readFileSync(politiciansPath, 'utf8'));
+      politiciansList = politiciansData.map(p => p.Name);
+    }
+    
+    const prompt = `
+    You are a professional Israeli newspaper editor specializing in creating concise, informative summaries.
+    Your task is to create a comprehensive summary of the following Hebrew news article, focusing on the main facts and key details.
+    
+    Here is a news article in Hebrew:
+    Title: ${title}
+    Full Content: ${articleContent}
+    
+    Instructions:
+    1. Write a detailed, comprehensive newspaper-style summary of this article in 4-6 sentences in HEBREW.
+    2. Focus on the key events, facts, participants, and context - not just the opening paragraph.
+    3. Include the most important details from throughout the article, not just the beginning.
+    4. Be factual, objective and thorough in your summary.
+    5. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
+    
+    Format your response as JSON:
+    {
+      "summary": "Your comprehensive summary in Hebrew here...",
+      "mentionedPoliticians": ["Politician Name 1", "Politician Name 2", ...]
+    }
+    
+    Make sure to escape any special characters in the JSON properly. If a politician name contains quotes, make sure to escape them properly.
+    `;
+    
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'llama3-8b-8192',
+      temperature: 0.3,
+      max_tokens: 1000
+    });
+    
+    // Get the raw response content
+    const responseContent = completion.choices[0].message.content;
+    
+    // Try to extract JSON from the response
+    let result;
+    try {
+      // Extract JSON if it's wrapped in a code block
+      const jsonMatch = responseContent.match(/```json\s*({[\s\S]*?})\s*```/) || 
+                        responseContent.match(/```\s*({[\s\S]*?})\s*```/) ||
+                        responseContent.match(/({[\s\S]*})/);
+      
+      if (jsonMatch && jsonMatch[1]) {
+        result = JSON.parse(jsonMatch[1]);
+      } else {
+        result = JSON.parse(responseContent);
+      }
+    } catch (error) {
+      console.error('Error parsing JSON from response:', error);
+      
+      // Manually extract summary and politicians as fallback
+      const summaryMatch = responseContent.match(/"summary":\s*"([^"]+)"/);
+      const politiciansMatch = responseContent.match(/"mentionedPoliticians":\s*\[(.*?)\]/);
+      
+      if (summaryMatch) {
+        const summary = summaryMatch[1];
+        const politiciansList = politiciansMatch ? 
+          politiciansMatch[1].split(',').map(p => p.trim().replace(/"/g, '')) : [];
+        
+        result = {
+          summary,
+          mentionedPoliticians: politiciansList
+        };
+      } else {
+        // Use the raw text as the summary if JSON parsing fails
+        result = {
+          summary: responseContent.substring(0, 500), // Limit to 500 chars
+          mentionedPoliticians: []
+        };
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('Error summarizing article with Groq:', error);
+    
+    // Check if there's a failed_generation in the error
+    if (error.error?.error?.failed_generation) {
+      console.log('Failed generation content:', error.error.error.failed_generation);
+      
+      // Try to extract useful information from the failed generation
+      try {
+        // Some cleanup to make it valid JSON
+        const cleanedJson = error.error.error.failed_generation
+          .replace(/\\\\/g, '\\')
+          .replace(/\\n/g, '\n');
+        
+        const result = JSON.parse(cleanedJson);
+        return result;
+      } catch (jsonError) {
+        console.error('Error parsing failed generation:', jsonError);
+      }
+    }
+    
+    return { summary: 'Error during summarization', mentionedPoliticians: [] };
+  }
+};
+
 // Insert an article with its politician mentions
 const insertArticle = (article, mentions) => {
   return new Promise((resolve, reject) => {
-    const { title, description, content, link, imageUrl, source, publishedAt, guid } = article;
+    const { title, description, content, link, imageUrl, source, publishedAt, guid, summary } = article;
     
     db.run(
-      `INSERT OR IGNORE INTO articles (title, description, content, link, imageUrl, source, publishedAt, guid, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title, description, content, link, imageUrl, source, publishedAt, guid, new Date().toISOString()],
+      `INSERT OR IGNORE INTO articles (title, description, content, link, imageUrl, source, publishedAt, guid, createdAt, summary)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, description, content, link, imageUrl, source, publishedAt, guid, new Date().toISOString(), summary],
       function(err) {
         if (err) return reject(err);
         
@@ -205,7 +422,8 @@ const updateFeeds = async () => {
             imageUrl: extractImageUrl(item),
             source: source.name,
             publishedAt: item.pubDate ? format(new Date(item.pubDate), 'yyyy-MM-dd HH:mm:ss') : format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
-            guid: item.guid || item.link || Math.random().toString(36).substring(2)
+            guid: item.guid || item.link || Math.random().toString(36).substring(2),
+            summary: '' // Initialize with empty summary
           };
           
           const mentions = findPoliticianMentions(article.title + ' ' + article.content);
@@ -224,6 +442,141 @@ const updateFeeds = async () => {
   }
 };
 
+// API route to summarize an article
+app.post('/api/summarize/:id', async (req, res) => {
+  try {
+    const articleId = req.params.id;
+    
+    // Get the article from the database
+    db.get('SELECT * FROM articles WHERE id = ?', [articleId], async (err, article) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      if (!article) {
+        return res.status(404).json({ error: 'Article not found' });
+      }
+      
+      // If article already has a summary, return it
+      if (article.summary) {
+        return res.json({ 
+          success: true, 
+          summary: article.summary,
+          message: 'Summary retrieved from database'
+        });
+      }
+      
+      // Scrape the article content if needed
+      let articleContent = article.content;
+      if (!articleContent || articleContent.length < 200) {
+        articleContent = await scrapeArticleContent(article.link);
+      }
+      
+      // Summarize the article
+      const { summary, mentionedPoliticians } = await summarizeArticle(articleContent, article.title);
+      
+      if (!summary) {
+        return res.status(500).json({ error: 'Failed to generate summary' });
+      }
+      
+      // Update the article in the database with the summary
+      db.run('UPDATE articles SET summary = ? WHERE id = ?', [summary, articleId], function(err) {
+        if (err) {
+          console.error('Error updating article with summary:', err);
+          return res.status(500).json({ error: 'Database error' });
+        }
+        
+        // Insert any new politician mentions
+        if (mentionedPoliticians && mentionedPoliticians.length > 0) {
+          // Get existing mentions
+          db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
+            if (err) {
+              console.error('Error fetching existing mentions:', err);
+              // Continue anyway, not a critical error
+            }
+            
+            const existingMentions = rows ? rows.map(row => row.politicianName) : [];
+            const newMentions = mentionedPoliticians.filter(p => !existingMentions.includes(p));
+            
+            if (newMentions.length > 0) {
+              const mentionValues = newMentions.map(name => 
+                `(${articleId}, '${name.replace(/'/g, "''")}')`
+              ).join(',');
+              
+              db.run(
+                `INSERT INTO politician_mentions (articleId, politicianName) VALUES ${mentionValues}`,
+                function(err) {
+                  if (err) {
+                    console.error('Error inserting new politician mentions:', err);
+                  }
+                }
+              );
+            }
+          });
+        }
+        
+        res.json({ 
+          success: true, 
+          summary,
+          mentionedPoliticians,
+          message: 'Summary generated and saved'
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Error in summarize endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// API route to summarize an article by URL
+app.post('/api/summarize-url', async (req, res) => {
+  try {
+    const { url } = req.body;
+    
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+    
+    console.log(`Summarizing article from URL: ${url}`);
+    
+    // Scrape the article content
+    const articleContent = await scrapeArticleContent(url);
+    
+    if (!articleContent || !articleContent.content) {
+      return res.status(404).json({ error: 'Failed to extract article content' });
+    }
+    
+    console.log(`Extracted content length: ${articleContent.content.length} characters`);
+    
+    // Get title from the scraped content or use a placeholder
+    const title = articleContent.title || 'Article Title';
+    const content = articleContent.content;
+    
+    // Summarize the article
+    const { summary, mentionedPoliticians } = await summarizeArticle(content, title);
+    
+    if (!summary) {
+      return res.status(500).json({ error: 'Failed to generate summary' });
+    }
+    
+    // Return the summary
+    res.json({ 
+      success: true, 
+      title,
+      url,
+      summary,
+      mentionedPoliticians,
+      content_length: content.length,
+      content_preview: content.substring(0, 200) + '...'
+    });
+  } catch (error) {
+    console.error('Error in summarize-url endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // API routes
 
 // Default route
@@ -233,6 +586,8 @@ app.get('/', (req, res) => {
     endpoints: [
       '/api/news - Get all news articles with pagination',
       '/api/news/:id - Get a specific news article',
+      '/api/summarize/:id - Generate or retrieve a summary for an article',
+      '/api/summarize-url - Generate a summary for an article by URL',
       '/api/refresh - Trigger a manual feed update',
       '/api/clear - Clear all news articles from the database',
       '/api/politicians - Get list of politicians'
@@ -341,7 +696,7 @@ app.get('/api/news', (req, res) => {
         const total = countRow.count;
         const totalPages = Math.ceil(total / limit);
         
-        // Format the response
+        // Format the response - summary field is already included in a.*
         const articles = rows.map(row => ({
           ...row,
           mentionedPoliticians: row.mentionedPoliticians ? row.mentionedPoliticians.split(',') : []
@@ -383,7 +738,7 @@ app.get('/api/news/:id', (req, res) => {
         return res.status(404).json({ error: 'Article not found' });
       }
       
-      // Format the response
+      // Format the response - summary field is already included in a.*
       const article = {
         ...row,
         mentionedPoliticians: row.mentionedPoliticians ? row.mentionedPoliticians.split(',') : []
