@@ -96,14 +96,6 @@
     "image_url": ""
   },
   {
-    "Name": "נשיא המדינה",
-    "Party": "",
-    "Position": "",
-    "Aliases": [],
-    "image": "",
-    "image_url": ""
-  },
-  {
     "Name": "משה סעדה",
     "Party": "הליכוד",
     "Position": "",
@@ -777,7 +769,7 @@
   },
   {
     "Name": "רם בן ברק",
-    "Party": "המחנה הממלכתי",
+    "Party": "יש עתיד",
     "Position": "",
     "Aliases": [],
     "image": "",
@@ -1153,7 +1145,7 @@
   },
   {
     "Name": "עידית סילמן",
-    "Party": "שרים שאינם חברי כנסת",
+    "Party": "הימין הממלכתי",
     "Position": "",
     "Aliases": [],
     "image": "",
