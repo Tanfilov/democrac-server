@@ -302,7 +302,7 @@ const summarizeArticle = async (articleContent, title) => {
   try {
     if (!groq) {
       console.warn('Groq client not initialized. Skipping summarization.');
-      return { summary: 'Summarization is disabled (API key not configured)', mentionedPoliticians: [] };
+      return { summary: '', mentionedPoliticians: [] };
     }
 
     if (!articleContent || articleContent.trim().length === 0) {
@@ -379,13 +379,30 @@ const summarizeArticle = async (articleContent, title) => {
           
           const responseFormat = isHebrew ? { type: 'text' } : { type: 'json_object' };
           
-          const completion = await groq.chat.completions.create({
-            messages: [{ role: 'user', content: prompt }],
-            model: 'llama3-8b-8192',
-            temperature: 0.3,
-            max_tokens: 1000,
-            response_format: responseFormat
-          });
+          // Try primary model first, then fallback to alternative if that fails
+          let completion;
+          let model = 'llama3-8b-8192';
+          
+          try {
+            completion = await groq.chat.completions.create({
+              messages: [{ role: 'user', content: prompt }],
+              model: model,
+              temperature: 0.3,
+              max_tokens: 1000,
+              response_format: responseFormat
+            });
+          } catch (modelError) {
+            // If primary model fails, try the fallback model
+            console.log(`Primary model ${model} failed, trying fallback model llama-3.1-8b-instant`);
+            model = 'llama-3.1-8b-instant';
+            completion = await groq.chat.completions.create({
+              messages: [{ role: 'user', content: prompt }],
+              model: model,
+              temperature: 0.3,
+              max_tokens: 1000,
+              response_format: responseFormat
+            });
+          }
           
           // Register the actual tokens used
           const tokensUsed = completion.usage.total_tokens;
@@ -437,7 +454,7 @@ const summarizeArticle = async (articleContent, title) => {
               
               // Extract summary using regex - look for text between "summary": and the next comma or closing brace
               const summaryMatch = failedText.match(/"summary":\s*"([^"]+)"/);
-              const summary = summaryMatch ? summaryMatch[1] : 'Error parsing summary';
+              const summary = summaryMatch ? summaryMatch[1] : '';
               
               // Extract politicians using regex - look for array after "mentionedPoliticians":
               const politiciansMatch = failedText.match(/"mentionedPoliticians":\s*\[(.*?)\]/);
@@ -449,23 +466,30 @@ const summarizeArticle = async (articleContent, title) => {
                 .map(p => p.trim().replace(/"/g, ''))
                 .filter(p => p.length > 0);
               
-              resolve({
-                summary,
-                mentionedPoliticians
-              });
+              // Only resolve with summary if we actually extracted something
+              if (summary) {
+                resolve({
+                  summary,
+                  mentionedPoliticians
+                });
+              } else {
+                // If we couldn't extract a valid summary, return empty
+                resolve({ summary: '', mentionedPoliticians: [] });
+              }
             } catch (parseError) {
               console.error('Error parsing failed generation:', parseError);
-              resolve({ summary: 'Error during summarization', mentionedPoliticians: [] });
+              resolve({ summary: '', mentionedPoliticians: [] });
             }
           } else {
-            resolve({ summary: 'Error during summarization', mentionedPoliticians: [] });
+            // For any other errors, return empty values
+            resolve({ summary: '', mentionedPoliticians: [] });
           }
         }
       });
     });
   } catch (error) {
     console.error('Error in summarizeArticle function:', error);
-    return { summary: 'Error during summarization', mentionedPoliticians: [] };
+    return { summary: '', mentionedPoliticians: [] };
   }
 };
 
