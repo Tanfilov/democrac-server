@@ -17,6 +17,14 @@ const cheerio = require('cheerio');
 let groq = null;
 try {
   console.log('GROQ_API_KEY status:', process.env.GROQ_API_KEY ? 'Set' : 'Not set');
+  if (process.env.GROQ_API_KEY) {
+    // Log first 4 and last 4 characters of the API key (safe to log)
+    const apiKey = process.env.GROQ_API_KEY;
+    const maskedKey = apiKey.length > 8 
+      ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`
+      : '(invalid key)';
+    console.log('GROQ_API_KEY first/last chars:', maskedKey);
+  }
   
   if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'YOUR_GROQ_API_KEY') {
     groq = new Groq({
@@ -643,6 +651,51 @@ app.get('/api/politicians', (req, res) => {
   } catch (error) {
     console.error('Error fetching politicians data:', error);
     res.status(500).json({ error: 'Failed to fetch politicians data' });
+  }
+});
+
+// Debug endpoint to test Groq API
+app.post('/api/debug/test-groq', async (req, res) => {
+  // Check if API key is provided (simple auth)
+  const apiKey = req.headers['x-admin-api-key'] || req.query.apiKey;
+  if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized - Admin API key required' });
+  }
+  
+  try {
+    if (!groq) {
+      return res.status(500).json({ 
+        error: 'Groq client not initialized',
+        groqStatus: process.env.GROQ_API_KEY ? 'API Key provided but client initialization failed' : 'No API Key found',
+        envVars: {
+          autoSummarize: AUTO_SUMMARIZE,
+          adminKeyConfigured: !!process.env.ADMIN_API_KEY,
+          groqKeyFirstChars: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 4) : 'none'
+        }
+      });
+    }
+    
+    // Test the Groq API with a simple request
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: 'user', content: 'Say hello world as JSON' }],
+      model: 'llama3-8b-8192',
+      temperature: 0.3,
+      max_tokens: 100,
+      response_format: { type: 'json_object' }
+    });
+    
+    return res.json({
+      success: true,
+      message: 'Groq API test successful',
+      response: completion.choices[0].message.content
+    });
+  } catch (error) {
+    console.error('Error testing Groq API:', error);
+    return res.status(500).json({ 
+      error: 'Error testing Groq API', 
+      message: error.message,
+      stack: error.stack
+    });
   }
 });
 
