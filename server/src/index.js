@@ -12,6 +12,8 @@ const { htmlToText } = require('html-to-text');
 const Groq = require('groq-sdk');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const config = require('./config');
+const { v4: uuidv4 } = require('uuid');
 
 // Initialize Groq client (conditionally)
 let groq = null;
@@ -1190,6 +1192,7 @@ app.get('/api/news', (req, res) => {
       baseQuery += ` AND EXISTS (
         SELECT 1 FROM politician_mentions pm2 
         WHERE pm2.articleId = a.id
+        LIMIT 1
       ) `;
     }
     
@@ -1201,6 +1204,7 @@ app.get('/api/news', (req, res) => {
     `;
     
     console.log(`Executing query with filters: onlySummarized=${onlySummarized}, onlyWithPoliticians=${onlyWithPoliticians}`);
+    console.log('SQL query:', baseQuery);
     
     // Execute the query
     db.all(baseQuery, [limit, offset], (err, rows) => {
@@ -1227,8 +1231,11 @@ app.get('/api/news', (req, res) => {
         countQuery += ` AND EXISTS (
           SELECT 1 FROM politician_mentions pm 
           WHERE pm.articleId = a.id
+          LIMIT 1
         ) `;
       }
+      
+      console.log('Count query:', countQuery);
       
       db.get(countQuery, (err, countRow) => {
         if (err) {
@@ -1240,11 +1247,13 @@ app.get('/api/news', (req, res) => {
         const total = countRow.count || 0;
         const totalPages = Math.ceil(total / limit);
         
+        console.log(`Found ${rows.length} articles matching criteria, ${total} total`);
+        
         // Format the response
         const formattedArticles = rows.map(row => {
           // Deduplicate politician names
           const mentionedPoliticians = row.mentionedPoliticians 
-            ? [...new Set(row.mentionedPoliticians.split(','))]
+            ? [...new Set(row.mentionedPoliticians.split(',').filter(p => p && p.trim() !== ''))]
             : [];
             
           return {
@@ -1417,11 +1426,55 @@ app.post('/api/debug/test-groq', async (req, res) => {
   }
 });
 
+// Debug endpoint to test politician detection
+app.get('/api/debug/test-politician-detection', (req, res) => {
+  try {
+    // Test texts containing references to various politicians
+    const testTexts = [
+      "ראש הממשלה בנימין נתניהו הודיע היום על תוכנית חדשה",
+      "יאיר לפיד, ראש האופוזיציה, מתנגד לתוכנית החדשה",
+      "שר האוצר בצלאל סמוטריץ' אמר כי התוכנית הכלכלית תיושם בקרוב",
+      "אבי מעוז, השר לביטחון פנים, מגיב לאירועי הביטחון האחרונים"
+    ];
+    
+    // Test results
+    const results = testTexts.map(text => {
+      return {
+        text: text,
+        detectedPoliticians: findPoliticianMentions(text)
+      };
+    });
+    
+    // Count all available politicians
+    const totalPoliticians = POLITICIANS.length;
+    
+    // Sample 5 random politicians from our list
+    const randomPoliticians = [];
+    for (let i = 0; i < 5 && i < POLITICIANS.length; i++) {
+      const randomIndex = Math.floor(Math.random() * POLITICIANS.length);
+      randomPoliticians.push({
+        name: POLITICIANS[randomIndex].he,
+        aliases: POLITICIANS[randomIndex].aliases
+      });
+    }
+    
+    return res.json({
+      success: true,
+      totalPoliticians,
+      randomPoliticians,
+      testResults: results
+    });
+  } catch (error) {
+    console.error('Error testing politician detection:', error);
+    return res.status(500).json({ error: 'Error testing politician detection' });
+  }
+});
+
 // Start the server
 initDatabase()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+    app.listen(config.port, () => {
+      console.log(`Server running on ${config.isProduction ? config.apiBaseUrl : 'http://localhost:' + config.port}`);
       console.log(`API ready for connections - RSS feeds will be cleared and refreshed`);
       
       // Clear all existing articles on startup
