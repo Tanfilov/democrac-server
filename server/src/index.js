@@ -408,29 +408,41 @@ const summarizeArticle = async (articleContent, title) => {
           
           const responseFormat = isHebrew ? { type: 'text' } : { type: 'json_object' };
           
-          // Try primary model first, then fallback to alternative if that fails
-          let completion;
-          let model = 'llama3-8b-8192';
+          // Models to try in order
+          const models = [
+            'llama3-8b-8192',
+            'meta-llama/llama-4-scout-17b-16e-instruct', // Added new model as the second option
+            'llama-3.1-8b-instant'
+          ];
           
-          try {
-            completion = await groq.chat.completions.create({
-              messages: [{ role: 'user', content: prompt }],
-              model: model,
-              temperature: 0.3,
-              max_tokens: 1500, // Increased max tokens to allow for longer summaries
-              response_format: responseFormat
-            });
-          } catch (modelError) {
-            // If primary model fails, try the fallback model
-            console.log(`Primary model ${model} failed, trying fallback model llama-3.1-8b-instant`);
-            model = 'llama-3.1-8b-instant';
-            completion = await groq.chat.completions.create({
-              messages: [{ role: 'user', content: prompt }],
-              model: model,
-              temperature: 0.3,
-              max_tokens: 1500, // Increased max tokens to allow for longer summaries
-              response_format: responseFormat
-            });
+          let completion;
+          let model;
+          let succeeded = false;
+          
+          // Try each model in sequence until one succeeds
+          for (const modelName of models) {
+            if (succeeded) break;
+            
+            model = modelName;
+            try {
+              console.log(`Attempting to summarize article using model: ${model}`);
+              completion = await groq.chat.completions.create({
+                messages: [{ role: 'user', content: prompt }],
+                model: model,
+                temperature: 0.3,
+                max_tokens: 1500, // Increased max tokens to allow for longer summaries
+                response_format: responseFormat
+              });
+              succeeded = true;
+              console.log(`Successfully summarized with model: ${model}`);
+            } catch (modelError) {
+              console.log(`Failed with model ${model}: ${modelError.message}`);
+            }
+          }
+          
+          // If all models failed, throw an error
+          if (!succeeded) {
+            throw new Error('All summarization models failed');
           }
           
           // Register the actual tokens used
