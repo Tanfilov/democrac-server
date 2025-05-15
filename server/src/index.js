@@ -221,6 +221,82 @@ const scrapeArticleContent = async (url) => {
   }
 };
 
+// Rate limiting for Groq API
+const groqRateLimit = {
+  requestsPerMinute: 25, // Set slightly below limit (30/min) for safety
+  tokensPerMinute: 5500, // Set slightly below limit (6k/min) for safety
+  
+  // Tracking variables
+  requestsThisMinute: 0,
+  tokensThisMinute: 0,
+  lastResetTime: Date.now(),
+  
+  // Queue for pending summarization requests
+  queue: [],
+  processing: false,
+  
+  // Reset counters
+  resetCounters() {
+    this.requestsThisMinute = 0;
+    this.tokensThisMinute = 0;
+    this.lastResetTime = Date.now();
+  },
+  
+  // Check if we can make another request
+  canMakeRequest(estimatedTokens = 1000) {
+    // Reset counters if a minute has passed
+    if (Date.now() - this.lastResetTime > 60000) {
+      this.resetCounters();
+    }
+    
+    return (
+      this.requestsThisMinute < this.requestsPerMinute &&
+      this.tokensThisMinute + estimatedTokens < this.tokensPerMinute
+    );
+  },
+  
+  // Register a request
+  registerRequest(tokens) {
+    this.requestsThisMinute++;
+    this.tokensThisMinute += tokens;
+  },
+  
+  // Add to queue
+  addToQueue(task) {
+    this.queue.push(task);
+    this.processQueue();
+  },
+  
+  // Process queue
+  async processQueue() {
+    if (this.processing || this.queue.length === 0) {
+      return;
+    }
+    
+    this.processing = true;
+    
+    try {
+      while (this.queue.length > 0) {
+        // Check if we can make another request
+        if (!this.canMakeRequest()) {
+          // Wait until next minute
+          const waitTime = 60000 - (Date.now() - this.lastResetTime) + 1000; // Add 1 second buffer
+          console.log(`Rate limit reached, waiting ${waitTime}ms before next request`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          this.resetCounters();
+        }
+        
+        const task = this.queue.shift();
+        await task();
+      }
+    } catch (error) {
+      console.error('Error processing queue:', error);
+    } finally {
+      this.processing = false;
+    }
+  }
+};
+
 // Summarize article using Groq API
 const summarizeArticle = async (articleContent, title) => {
   try {
@@ -233,6 +309,9 @@ const summarizeArticle = async (articleContent, title) => {
       return { summary: '', mentionedPoliticians: [] };
     }
     
+    // Detect content language
+    const isHebrew = /[\u0590-\u05FF]/.test(articleContent) || /[\u0590-\u05FF]/.test(title);
+    
     // Load politicians data for detection
     const politiciansPath = path.join(__dirname, '../../data/politicians/politicians.json');
     let politiciansList = [];
@@ -242,35 +321,54 @@ const summarizeArticle = async (articleContent, title) => {
       politiciansList = politiciansData.map(p => p.Name);
     }
     
-    const prompt = `
-    You are a professional newspaper editor specializing in creating concise, informative summaries.
+    // Estimate tokens (rough estimate: 4 chars per token)
+    const estimatedPromptTokens = Math.ceil((title.length + articleContent.length) / 4) + 500; // Add 500 for the prompt text
     
-    Here is a news article:
-    Title: ${title}
-    Content: ${articleContent}
-    
-    1. Write a newspaper-style summary of this article in 3-5 sentences. Be factual and objective.
-    2. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
-    
-    Format your response as JSON:
-    {
-      "summary": "Your summary here...",
-      "mentionedPoliticians": ["Politician Name 1", "Politician Name 2", ...]
-    }
-    `;
-    
-    const completion = await groq.chat.completions.create({
-      messages: [{ role: 'user', content: prompt }],
-      model: 'llama3-8b-8192',
-      temperature: 0.3,
-      max_tokens: 1000,
-      response_format: { type: 'json_object' }
+    // Create a promise that will be resolved when the API call completes
+    return new Promise((resolve) => {
+      groqRateLimit.addToQueue(async () => {
+        try {
+          const prompt = `
+          You are a professional newspaper editor specializing in creating concise, informative summaries.
+          
+          Here is a news article:
+          Title: ${title}
+          Content: ${articleContent}
+          
+          1. Write a newspaper-style summary of this article in 3-5 sentences.
+          2. Your summary MUST be in the ${isHebrew ? 'Hebrew' : 'English'} language, matching the language of the original article.
+          3. Be factual and objective.
+          4. Identify any Israeli politicians mentioned in this article from this list: ${politiciansList.join(', ')}
+          
+          Format your response as JSON:
+          {
+            "summary": "Your summary here...",
+            "mentionedPoliticians": ["Politician Name 1", "Politician Name 2", ...]
+          }
+          `;
+          
+          const completion = await groq.chat.completions.create({
+            messages: [{ role: 'user', content: prompt }],
+            model: 'llama3-8b-8192',
+            temperature: 0.3,
+            max_tokens: 1000,
+            response_format: { type: 'json_object' }
+          });
+          
+          // Register the actual tokens used
+          const tokensUsed = completion.usage.total_tokens;
+          groqRateLimit.registerRequest(tokensUsed);
+          
+          const result = JSON.parse(completion.choices[0].message.content);
+          resolve(result);
+        } catch (error) {
+          console.error('Error summarizing article with Groq:', error);
+          resolve({ summary: 'Error during summarization', mentionedPoliticians: [] });
+        }
+      });
     });
-    
-    const result = JSON.parse(completion.choices[0].message.content);
-    return result;
   } catch (error) {
-    console.error('Error summarizing article with Groq:', error);
+    console.error('Error in summarizeArticle function:', error);
     return { summary: 'Error during summarization', mentionedPoliticians: [] };
   }
 };
@@ -307,11 +405,114 @@ const insertArticle = (article, mentions) => {
   });
 };
 
+// Process a batch of articles for summarization
+const processBatchForSummarization = async (articleIds, maxBatchSize = 5) => {
+  if (!articleIds.length) return;
+  
+  console.log(`Processing batch of ${articleIds.length} articles for summarization`);
+  
+  // Process in smaller batches to avoid overwhelming the API
+  for (let i = 0; i < articleIds.length; i += maxBatchSize) {
+    const batch = articleIds.slice(i, i + maxBatchSize);
+    
+    // Process each article in the batch concurrently
+    await Promise.all(
+      batch.map(async (articleId) => {
+        try {
+          // Get article from database
+          const article = await new Promise((resolve, reject) => {
+            db.get('SELECT * FROM articles WHERE id = ?', [articleId], (err, row) => {
+              if (err) reject(err);
+              else resolve(row);
+            });
+          });
+          
+          if (!article) {
+            console.error(`Article with ID ${articleId} not found`);
+            return;
+          }
+          
+          console.log(`Auto-generating summary for article ID: ${articleId}`);
+          
+          // Scrape full content if needed
+          let articleContent = article.content;
+          if (!articleContent || articleContent.length < 200) {
+            const scrapedContent = await scrapeArticleContent(article.link);
+            if (scrapedContent) {
+              articleContent = scrapedContent;
+              
+              // Update the article with scraped content
+              await new Promise((resolve, reject) => {
+                db.run('UPDATE articles SET content = ? WHERE id = ?', [scrapedContent, articleId], (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                });
+              });
+            }
+          }
+          
+          // Generate summary
+          const result = await summarizeArticle(articleContent, article.title);
+          
+          // Update the article with the summary
+          if (result.summary) {
+            await new Promise((resolve, reject) => {
+              db.run('UPDATE articles SET summary = ? WHERE id = ?', [result.summary, articleId], (err) => {
+                if (err) reject(err);
+                else resolve();
+              });
+            });
+            
+            // Add any new politician mentions
+            if (result.mentionedPoliticians && result.mentionedPoliticians.length > 0) {
+              // Get existing mentions
+              const existingMentions = await new Promise((resolve, reject) => {
+                db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
+                  if (err) reject(err);
+                  else resolve(rows ? rows.map(row => row.politicianName) : []);
+                });
+              });
+              
+              const newMentions = result.mentionedPoliticians.filter(p => !existingMentions.includes(p));
+              
+              if (newMentions.length > 0) {
+                const mentionValues = newMentions.map(name => 
+                  `(${articleId}, '${name.replace(/'/g, "''")}')`
+                ).join(',');
+                
+                await new Promise((resolve, reject) => {
+                  db.run(
+                    `INSERT INTO politician_mentions (articleId, politicianName) VALUES ${mentionValues}`,
+                    (err) => {
+                      if (err) reject(err);
+                      else resolve();
+                    }
+                  );
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error processing article ${articleId} for summarization:`, error);
+        }
+      })
+    );
+    
+    // Add a small delay between batches to avoid overwhelming the system
+    if (i + maxBatchSize < articleIds.length) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+};
+
 // Fetch and process RSS feeds
 const updateFeeds = async () => {
   console.log('Fetching RSS feeds...');
   
   try {
+    // Track articles that need summarization
+    const articlesToSummarize = [];
+    
     for (const source of NEWS_SOURCES) {
       try {
         const feed = await parser.parseURL(source.url);
@@ -336,45 +537,9 @@ const updateFeeds = async () => {
           const mentions = findPoliticianMentions(article.title + ' ' + article.content);
           const articleId = await insertArticle(article, mentions);
           
-          // Auto-generate summary for new articles
+          // If a new article was inserted, add it to the summarization queue
           if (articleId && AUTO_SUMMARIZE && groq) {
-            try {
-              console.log(`Auto-generating summary for new article ID: ${articleId}`);
-              // Scrape full content if needed
-              let articleContent = article.content;
-              if (!articleContent || articleContent.length < 200) {
-                const scrapedContent = await scrapeArticleContent(article.link);
-                if (scrapedContent && scrapedContent.content) {
-                  articleContent = scrapedContent.content;
-                }
-              }
-              
-              // Generate summary
-              const { summary, mentionedPoliticians } = await summarizeArticle(articleContent, article.title);
-              
-              // Update the article with the summary
-              if (summary) {
-                db.run('UPDATE articles SET summary = ? WHERE id = ?', [summary, articleId]);
-                
-                // Add any new politician mentions
-                if (mentionedPoliticians && mentionedPoliticians.length > 0) {
-                  const existingMentions = mentions;
-                  const newMentions = mentionedPoliticians.filter(p => !existingMentions.includes(p));
-                  
-                  if (newMentions.length > 0) {
-                    const mentionValues = newMentions.map(name => 
-                      `(${articleId}, '${name.replace(/'/g, "''")}')`
-                    ).join(',');
-                    
-                    db.run(
-                      `INSERT INTO politician_mentions (articleId, politicianName) VALUES ${mentionValues}`
-                    );
-                  }
-                }
-              }
-            } catch (summaryError) {
-              console.error(`Error auto-generating summary for article ${articleId}:`, summaryError);
-            }
+            articlesToSummarize.push(articleId);
           }
         }
         
@@ -385,6 +550,11 @@ const updateFeeds = async () => {
     }
     
     console.log('RSS feed update completed');
+    
+    // Process articles for summarization
+    if (articlesToSummarize.length > 0 && AUTO_SUMMARIZE && groq) {
+      processBatchForSummarization(articlesToSummarize);
+    }
   } catch (error) {
     console.error('Error updating feeds:', error);
   }
@@ -543,18 +713,20 @@ app.post('/api/clear', (req, res) => {
   });
 });
 
-// Get all articles with pagination
+// Get all articles with pagination (only return articles with summaries)
 app.get('/api/news', (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
   
+  // Modified query to only include articles with summaries
   db.all(
     `SELECT 
       a.*,
       GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
     FROM articles a
     LEFT JOIN politician_mentions pm ON a.id = pm.articleId
+    WHERE a.summary IS NOT NULL AND a.summary != ''
     GROUP BY a.id
     ORDER BY publishedAt DESC
     LIMIT ? OFFSET ?`,
@@ -565,8 +737,8 @@ app.get('/api/news', (req, res) => {
         return res.status(500).json({ error: 'Database error' });
       }
       
-      // Get total count for pagination
-      db.get('SELECT COUNT(*) as count FROM articles', (err, countRow) => {
+      // Get total count for pagination (of articles with summaries)
+      db.get('SELECT COUNT(*) as count FROM articles WHERE summary IS NOT NULL AND summary != ""', (err, countRow) => {
         if (err) {
           console.error('Count error:', err);
           return res.status(500).json({ error: 'Database error' });
@@ -589,6 +761,33 @@ app.get('/api/news', (req, res) => {
             total
           }
         });
+      });
+    }
+  );
+});
+
+// Get total articles count (with and without summaries)
+app.get('/api/news/stats', (req, res) => {
+  db.get(
+    `SELECT 
+      COUNT(*) as total,
+      SUM(CASE WHEN summary IS NOT NULL AND summary != '' THEN 1 ELSE 0 END) as withSummary,
+      SUM(CASE WHEN summary IS NULL OR summary = '' THEN 1 ELSE 0 END) as withoutSummary
+    FROM articles`,
+    [],
+    (err, row) => {
+      if (err) {
+        console.error('Database error:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      res.json({
+        stats: {
+          total: row.total,
+          withSummary: row.withSummary,
+          withoutSummary: row.withoutSummary,
+          percentComplete: row.total > 0 ? Math.round((row.withSummary / row.total) * 100) : 0
+        }
       });
     }
   );
