@@ -22,7 +22,7 @@ function findPoliticianMentions(text, POLITICIANS) {
   
   // 1. Direct name and alias matching
   POLITICIANS.forEach(politician => {
-    const politicianName = politician.he;
+    const politicianName = politician.name || politician.he; // Support both name structures
     let detected = false;
     
     // Check exact name with various Hebrew prefixes
@@ -78,20 +78,41 @@ function findPoliticianMentions(text, POLITICIANS) {
       const posWithPrefix = prefix + positionTerm;
       
       if (isExactMatch(normalizedText, posWithPrefix, wordBoundaries)) {
-        // Check if this is a former position (contains "לשעבר")
-        const isFormerPosition = isPositionFormer(normalizedText, posWithPrefix);
-        
-        // Skip detection for former positions
-        if (isFormerPosition) {
+        // Check if this position is qualified in a way that makes it not refer to the current holder
+        if (isModifiedPosition(normalizedText, posWithPrefix)) {
           continue;
         }
         
         // Only detect current positions
-        const politiciansWithPosition = POLITICIANS.filter(p => p.position === standardPosition);
+        const politiciansWithPosition = POLITICIANS.filter(p => 
+          (p.position === standardPosition) || (p.role === standardPosition)
+        );
         
         if (politiciansWithPosition.length > 0) {
+          // New approach: only detect by position if there's a partial name indicator nearby
           const politician = politiciansWithPosition[0]; // Take the first one
-          detectedPoliticians.add(politician.he);
+          const politicianName = politician.name || politician.he;
+          
+          // Check for partial name indicators near the position
+          const positionIndex = normalizedText.indexOf(posWithPrefix);
+          const windowSize = 200; // Characters to check before and after the position
+          
+          const contextStart = Math.max(0, positionIndex - windowSize);
+          const contextEnd = Math.min(normalizedText.length, positionIndex + posWithPrefix.length + windowSize);
+          const context = normalizedText.substring(contextStart, contextEnd);
+          
+          // Get name parts that wouldn't be detected on their own
+          const nameParts = getPartialNameIndicators(politicianName);
+          
+          // Check if any partial name indicators are present in the context
+          const hasPartialNameIndicator = nameParts.some(part => 
+            context.includes(part) && 
+            isStandaloneWord(context, part)
+          );
+          
+          if (hasPartialNameIndicator) {
+            detectedPoliticians.add(politicianName);
+          }
         }
       }
     }
@@ -101,46 +122,108 @@ function findPoliticianMentions(text, POLITICIANS) {
 }
 
 /**
- * Helper function to check if a position is described as former in the text
+ * Get partial name indicators that wouldn't be detected by the main detection logic
+ * @param {string} fullName - The politician's full name
+ * @returns {Array} Array of partial name indicators
+ */
+function getPartialNameIndicators(fullName) {
+  const parts = [];
+  
+  // Split by space to get individual name parts
+  const nameParts = fullName.split(' ');
+  
+  // Add last name if it's not too short
+  if (nameParts.length > 1 && nameParts[nameParts.length - 1].length >= 3) {
+    parts.push(nameParts[nameParts.length - 1]);
+  }
+  
+  // For specific known cases
+  if (fullName === 'יצחק הרצוג') {
+    parts.push('הרצוג');
+    parts.push('בוז׳י');
+    parts.push('בוזי');
+    parts.push('בוזי');
+  } else if (fullName === 'בנימין נתניהו') {
+    parts.push('ביבי');
+    parts.push('נתניהו');
+  } else if (fullName === 'יאיר לפיד') {
+    parts.push('לפיד');
+  } 
+  // Add more specific cases as needed
+  
+  return parts;
+}
+
+/**
+ * Check if a word appears as a standalone word in the text
+ * @param {string} text - The text to search in
+ * @param {string} word - The word to check
+ * @returns {boolean} True if it appears as a standalone word
+ */
+function isStandaloneWord(text, word) {
+  const wordBoundaries = [' ', '.', ',', ':', ';', '?', '!', '"', "'", '(', ')', '[', ']', '{', '}', '\n', '\t', '"', '"'];
+  const regex = new RegExp(`(^|[${wordBoundaries.join('')}])${escapeRegExp(word)}($|[${wordBoundaries.join('')}])`, 'i');
+  return regex.test(text);
+}
+
+/**
+ * Helper function to escape special regex characters
+ * @param {string} string - String to escape
+ * @returns {string} Escaped string
+ */
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Helper function to check if a position is described as former/future/etc in the text
  * @param {string} text - The text to search in
  * @param {string} position - The position text to look for
- * @returns {boolean} True if position is described as former
+ * @returns {boolean} True if position is modified in a way that doesn't refer to current holder
  */
-function isPositionFormer(text, position) {
-  // Check if "לשעבר" appears after the position
+function isModifiedPosition(text, position) {
+  // Check if position is modified in a way that it doesn't refer to the current holder
   const positionIndex = text.indexOf(position);
   if (positionIndex >= 0) {
-    // Get the text after the position
-    const afterText = text.substring(positionIndex + position.length);
+    // Get the text before and after the position
+    const beforeText = text.substring(Math.max(0, positionIndex - 30), positionIndex);
+    const afterText = text.substring(positionIndex + position.length, Math.min(text.length, positionIndex + position.length + 30));
     
-    // Case 1: "לשעבר" (former) appears immediately or with punctuation
-    if (afterText.trim().startsWith('לשעבר') || 
-        afterText.match(/^[ \t,.;:]+לשעבר/) ||
-        afterText.match(/^[ \t,.;:]+ה?לשעבר/)) {
-      return true;
+    // Check for modifiers that indicate a different context
+    
+    // 1. Former position modifiers
+    const formerModifiers = ['לשעבר', 'הקודם', 'היוצא', 'לקודם', 'הזמני'];
+    for (const modifier of formerModifiers) {
+      if (afterText.trim().startsWith(modifier) || afterText.match(new RegExp(`^[ \t,.;:]+${modifier}`))) {
+        return true;
+      }
     }
     
-    // Case 2: "הקודם" (previous/former) appears after the position
-    if (afterText.trim().startsWith('הקודם') || 
-        afterText.match(/^[ \t,.;:]+הקודם/)) {
-      return true;
+    // 2. Future position modifiers
+    const futureModifiers = ['המיועד', 'הבא', 'העתידי', 'לעתיד'];
+    for (const modifier of futureModifiers) {
+      if (afterText.trim().startsWith(modifier) || afterText.match(new RegExp(`^[ \t,.;:]+${modifier}`))) {
+        return true;
+      }
     }
     
-    // Case 3: Reference to a specific government or past period
+    // 3. Specific government or past period contexts
     if (afterText.match(/בממשלת|בממשל/) ||
         afterText.match(/הראשונה|השנייה|השלישית|הרביעית/) ||
         afterText.match(/הקודמת|היוצאת|הזמנית/)) {
       return true;
     }
     
-    // Case 4: Position "של" (of) someone else, indicating historical reference
+    // 4. Position "של" (of) someone else, indicating reference to another person
     if (afterText.match(/[ \t,.;:]*של[ \t]+[א-ת]/)) {
       return true;
     }
     
-    // Case 5: Position followed by a name that's not the current position holder
-    // This is a more complex case that would require checking against current holders
-    // For now, we'll handle this through the other patterns
+    // 5. Check for mentions of "לכהן" (to serve) or "מונה" (appointed) in the before text 
+    // which might indicate historical or future reference
+    if (beforeText.match(/לכהן|מונה|ימונה|התמנה|יתמנה/)) {
+      return true;
+    }
   }
   return false;
 }
@@ -171,13 +254,13 @@ function hasRequiredContext(text, politician, nameMatchIndex, nameLength) {
   const foundContext = politician.contextIdentifiers.some(context => {
     const contextFound = textWindow.includes(context);
     if (contextFound) {
-      console.log(`Found required context "${context}" near ${politician.he} at position ${nameMatchIndex}`);
+      console.log(`Found required context "${context}" near ${politician.name || politician.he} at position ${nameMatchIndex}`);
     }
     return contextFound;
   });
   
   if (!foundContext) {
-    console.log(`No required context found for ${politician.he} - context needed: [${politician.contextIdentifiers.join(', ')}]`);
+    console.log(`No required context found for ${politician.name || politician.he} - context needed: [${politician.contextIdentifiers.join(', ')}]`);
   }
   
   return foundContext;
@@ -294,7 +377,7 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
     const titlePoliticians = findPoliticianMentions(article.title, POLITICIANS);
     titlePoliticians.forEach(p => {
       detectedPoliticians.push(p);
-      confidenceScores[p] = (confidenceScores[p] || 0) + 3; // Higher weight for title matches
+      confidenceScores[p] = (confidenceScores[p] || 0) + 10; // Higher weight for title matches
       detectionMethods[p] = [...(detectionMethods[p] || []), 'title'];
     });
   }
@@ -305,7 +388,7 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
     const descriptionPoliticians = findPoliticianMentions(article.description, POLITICIANS);
     descriptionPoliticians.forEach(p => {
       if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
-      confidenceScores[p] = (confidenceScores[p] || 0) + 2; // Medium weight for description matches
+      confidenceScores[p] = (confidenceScores[p] || 0) + 5; // Medium weight for description matches
       detectionMethods[p] = [...(detectionMethods[p] || []), 'description'];
     });
   }
@@ -313,11 +396,41 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
   // Step 2: If we have content already, check it
   if (article.content && article.content.length > 50) {
     console.log(`Checking content (${article.content.length} characters)`);
+    
+    // Calculate early content threshold
+    const contentLength = article.content.length;
+    const earlyContentThreshold = Math.min(500, contentLength * 0.2); // First 500 chars or 20% of content
+    const earlyContent = article.content.substring(0, earlyContentThreshold);
+    
+    // Check full content
     const contentPoliticians = findPoliticianMentions(article.content, POLITICIANS);
+    
+    // Check early content separately
+    const earlyContentPoliticians = findPoliticianMentions(earlyContent, POLITICIANS);
+    
+    // Score content mentions
     contentPoliticians.forEach(p => {
       if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
-      confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
+      confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Base score for content mentions
       detectionMethods[p] = [...(detectionMethods[p] || []), 'content'];
+      
+      // Award bonus for early content mentions
+      if (earlyContentPoliticians.includes(p)) {
+        confidenceScores[p] = (confidenceScores[p] || 0) + 3; // Bonus for early content
+        detectionMethods[p] = [...(detectionMethods[p] || []), 'early_content'];
+      }
+      
+      // Award bonus for multiple mentions
+      const mentionCount = countOccurrences(article.content, p);
+      if (mentionCount > 1) {
+        confidenceScores[p] = (confidenceScores[p] || 0) + Math.min(mentionCount - 1, 5); // Bonus for multiple mentions, capped at 5
+      }
+      
+      // Award bonus for quote proximity
+      if (isNearQuotes(article.content, p)) {
+        confidenceScores[p] = (confidenceScores[p] || 0) + 2; // Bonus for quote proximity
+        detectionMethods[p] = [...(detectionMethods[p] || []), 'near_quotes'];
+      }
     });
   } 
   // If we don't have sufficient content, scrape it
@@ -332,12 +445,40 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
           await updateArticleContent(article.id, scrapedContent);
         }
         
-        // Check for politicians in the scraped content
+        // Calculate early content threshold
+        const contentLength = scrapedContent.length;
+        const earlyContentThreshold = Math.min(500, contentLength * 0.2);
+        const earlyContent = scrapedContent.substring(0, earlyContentThreshold);
+        
+        // Check full content
         const contentPoliticians = findPoliticianMentions(scrapedContent, POLITICIANS);
+        
+        // Check early content separately
+        const earlyContentPoliticians = findPoliticianMentions(earlyContent, POLITICIANS);
+        
+        // Score content mentions using the same logic as above
         contentPoliticians.forEach(p => {
           if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
-          confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
+          confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Base score for content mentions
           detectionMethods[p] = [...(detectionMethods[p] || []), 'scraped_content'];
+          
+          // Award bonus for early content mentions
+          if (earlyContentPoliticians.includes(p)) {
+            confidenceScores[p] = (confidenceScores[p] || 0) + 3; // Bonus for early content
+            detectionMethods[p] = [...(detectionMethods[p] || []), 'early_content'];
+          }
+          
+          // Award bonus for multiple mentions
+          const mentionCount = countOccurrences(scrapedContent, p);
+          if (mentionCount > 1) {
+            confidenceScores[p] = (confidenceScores[p] || 0) + Math.min(mentionCount - 1, 5);
+          }
+          
+          // Award bonus for quote proximity
+          if (isNearQuotes(scrapedContent, p)) {
+            confidenceScores[p] = (confidenceScores[p] || 0) + 2;
+            detectionMethods[p] = [...(detectionMethods[p] || []), 'near_quotes'];
+          }
         });
       }
     } catch (error) {
@@ -365,10 +506,10 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
     .filter(p => {
       // For special politicians like Trump, use a lower threshold
       if (specialPoliticians.includes(p.name)) {
-        return p.score >= 1;
+        return p.score >= 2;
       }
       // For regular politicians, use normal threshold
-      return p.score >= 2;
+      return p.score >= 3;
     })
     .map(p => p.name);
   
@@ -380,12 +521,68 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
   return highConfidencePoliticians;
 }
 
+/**
+ * Count the number of occurrences of a politician name in text
+ * @param {string} text - The text to search in
+ * @param {string} politician - Politician name to count
+ * @returns {number} Number of occurrences
+ */
+function countOccurrences(text, politician) {
+  if (!text || !politician) return 0;
+  
+  // Create a regex pattern that matches the politician name as a whole word
+  const escapedPolitician = escapeRegExp(politician);
+  const regex = new RegExp(`(^|\\s|["'\`.,;:!?()[\\]{}])${escapedPolitician}(?=$|\\s|["'\`.,;:!?()[\\]{}])`, 'g');
+  
+  const matches = text.match(regex);
+  return matches ? matches.length : 0;
+}
+
+/**
+ * Check if politician name is mentioned near quotes
+ * @param {string} text - The text to search in
+ * @param {string} politician - Politician name to look for
+ * @returns {boolean} True if near quotes
+ */
+function isNearQuotes(text, politician) {
+  if (!text || !politician) return false;
+  
+  // Find all positions of the politician's name
+  const positions = [];
+  let pos = text.indexOf(politician);
+  while (pos !== -1) {
+    positions.push(pos);
+    pos = text.indexOf(politician, pos + 1);
+  }
+  
+  // Window size to check for quotes
+  const windowSize = 100;
+  
+  // Check if quotes exist near any occurrence
+  for (const position of positions) {
+    const start = Math.max(0, position - windowSize);
+    const end = Math.min(text.length, position + politician.length + windowSize);
+    const window = text.substring(start, end);
+    
+    // Check for quote characters in the window
+    if (window.match(/["''״]/)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 module.exports = {
   findPoliticianMentions,
   enhancedPoliticianDetection,
-  isPositionFormer,
+  isModifiedPosition,
   hasRequiredContext,
   isExactMatch,
   findAllOccurrences,
-  isInsideQuotes
+  isInsideQuotes,
+  countOccurrences,
+  isNearQuotes,
+  getPartialNameIndicators,
+  isStandaloneWord
 }; 
