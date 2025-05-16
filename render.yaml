@@ -6,6 +6,7 @@ services:
     branch: main
     buildCommand: npm install && cd server && npm install
     startCommand: cd server && node index.js
+    rootDir: .
     envVars:
       - key: UPDATE_INTERVAL
         value: 300000
@@ -21,3 +22,5 @@ services:
         value: YourSecretKeyHere123
       - key: AUTO_SUMMARIZE
         value: "true"
+      - key: NODE_ENV
+        value: "production"

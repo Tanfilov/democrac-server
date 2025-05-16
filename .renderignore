@@ -1,0 +1,10 @@
+# Ignore the test environment directory
+test-environment/
+
+# Ignore any test files from the root directory
+test-*.js
+
+# Ignore any documentation or development-only files
+*.md
+!README.md
+docs/ 
