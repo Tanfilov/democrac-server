@@ -4,4 +4,4 @@ test-environment/** linguist-generated=true
 # Mark documentation as development-only
 docs/** linguist-documentation=true
 *.md linguist-documentation=true
-!README.md 
+\!README.md linguist-documentation=false 
