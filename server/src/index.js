@@ -973,7 +973,10 @@ const processBatchForPoliticianDetection = async (articleIds, maxBatchSize = 5) 
               detectedPoliticians
             );
             
-            // Get only the relevant politicians to add to the database (min score > 0)
+            // Get politicians to add to the database using relevance scoring logic
+            // This will include either:
+            // 1. All politicians that are deemed relevant (score > 0 and meets criteria), OR
+            // 2. If no politicians are deemed relevant, up to 2 politicians with the highest scores (as long as > 0)
             const relevantPoliticiansData = politicianDetection.getRelevantPoliticians(scoredPoliticians, {
               minScore: 1, // Minimum score required to be included in the database
               maxCount: 10 // Allow more politicians if they're relevant
@@ -983,6 +986,12 @@ const processBatchForPoliticianDetection = async (articleIds, maxBatchSize = 5) 
             const relevantPoliticians = relevantPoliticiansData.map(p => p.name);
             
             console.log(`Article ${articleId}: ${detectedPoliticians.length} politicians detected, ${relevantPoliticians.length} relevant politicians after scoring`);
+            
+            // See if we're using the backup mechanism
+            const primaryRelevantCount = scoredPoliticians.filter(p => p.isRelevant).length;
+            if (primaryRelevantCount === 0 && relevantPoliticians.length > 0) {
+              console.log(`Article ${articleId}: Using backup relevance mechanism - no primary relevant politicians found, using top ${relevantPoliticians.length} scored politicians`);
+            }
             
             // Update the article's politician mentions (using the filtered list)
             if (relevantPoliticians.length > 0) {
@@ -1265,7 +1274,10 @@ const updateFeeds = async () => {
                 detectedPoliticians
               );
               
-              // Get only the relevant politicians to add to the database (min score > 0)
+              // Get politicians to add to the database using relevance scoring logic
+              // This will include either:
+              // 1. All politicians that are deemed relevant (score > 0 and meets criteria), OR
+              // 2. If no politicians are deemed relevant, up to 2 politicians with the highest scores (as long as > 0)
               const relevantPoliticiansData = politicianDetection.getRelevantPoliticians(scoredPoliticians, {
                 minScore: 1, // Minimum score required to be included in the database
                 maxCount: 10 // Allow more politicians if they're relevant
@@ -1273,6 +1285,12 @@ const updateFeeds = async () => {
               
               // Extract just the politician names
               relevantPoliticians = relevantPoliticiansData.map(p => p.name);
+              
+              // See if we're using the backup mechanism
+              const primaryRelevantCount = scoredPoliticians.filter(p => p.isRelevant).length;
+              if (primaryRelevantCount === 0 && relevantPoliticians.length > 0) {
+                console.log(`Article "${article.title.substring(0, 40)}...": Using backup relevance mechanism - no primary relevant politicians found, using top ${relevantPoliticians.length} scored politicians`);
+              }
               
               if (relevantPoliticians.length < detectedPoliticians.length) {
                 console.log(`Initial relevance filtering: ${detectedPoliticians.length} detected → ${relevantPoliticians.length} relevant for article "${article.title.substring(0, 40)}..."`);
