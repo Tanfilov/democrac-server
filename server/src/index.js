@@ -958,11 +958,38 @@ const processBatchForPoliticianDetection = async (articleIds, maxBatchSize = 5) 
           // Enhanced politician detection
           const detectedPoliticians = await enhancedPoliticianDetection(article);
           
-          // Update the article's politician mentions
+          // Apply relevance scoring to filter only relevant politicians
           if (detectedPoliticians.length > 0) {
-            const addedCount = await updatePoliticianMentions(articleId, detectedPoliticians);
-            if (addedCount > 0) {
-              console.log(`Added ${addedCount} new politician mentions for article ${articleId}`);
+            // Create article object for relevance scoring
+            const articleForScoring = {
+              title: article.title || '',
+              description: article.description || '',
+              content: article.content || ''
+            };
+            
+            // Get relevance scores for all detected politicians
+            const scoredPoliticians = politicianDetection.scorePoliticianRelevance(
+              articleForScoring,
+              detectedPoliticians
+            );
+            
+            // Get only the relevant politicians to add to the database (min score > 0)
+            const relevantPoliticiansData = politicianDetection.getRelevantPoliticians(scoredPoliticians, {
+              minScore: 1, // Minimum score required to be included in the database
+              maxCount: 10 // Allow more politicians if they're relevant
+            });
+            
+            // Extract just the politician names
+            const relevantPoliticians = relevantPoliticiansData.map(p => p.name);
+            
+            console.log(`Article ${articleId}: ${detectedPoliticians.length} politicians detected, ${relevantPoliticians.length} relevant politicians after scoring`);
+            
+            // Update the article's politician mentions (using the filtered list)
+            if (relevantPoliticians.length > 0) {
+              const addedCount = await updatePoliticianMentions(articleId, relevantPoliticians);
+              if (addedCount > 0) {
+                console.log(`Added ${addedCount} new politician mentions for article ${articleId}`);
+              }
             }
           }
           
@@ -1220,8 +1247,40 @@ const updateFeeds = async () => {
             };
             
             // Initial simple politician detection
-            const mentions = findPoliticianMentions(article.title + ' ' + article.description + ' ' + article.content);
-            const articleId = await insertArticle(article, mentions);
+            const detectedPoliticians = findPoliticianMentions(article.title + ' ' + article.description + ' ' + article.content);
+            
+            // Apply relevance scoring to filter only relevant politicians
+            let relevantPoliticians = [];
+            if (detectedPoliticians.length > 0) {
+              // Create article object for relevance scoring
+              const articleForScoring = {
+                title: article.title || '',
+                description: article.description || '',
+                content: article.content || ''
+              };
+              
+              // Get relevance scores for all detected politicians
+              const scoredPoliticians = politicianDetection.scorePoliticianRelevance(
+                articleForScoring,
+                detectedPoliticians
+              );
+              
+              // Get only the relevant politicians to add to the database (min score > 0)
+              const relevantPoliticiansData = politicianDetection.getRelevantPoliticians(scoredPoliticians, {
+                minScore: 1, // Minimum score required to be included in the database
+                maxCount: 10 // Allow more politicians if they're relevant
+              });
+              
+              // Extract just the politician names
+              relevantPoliticians = relevantPoliticiansData.map(p => p.name);
+              
+              if (relevantPoliticians.length < detectedPoliticians.length) {
+                console.log(`Initial relevance filtering: ${detectedPoliticians.length} detected → ${relevantPoliticians.length} relevant for article "${article.title.substring(0, 40)}..."`);
+              }
+            }
+            
+            // Only insert politicians that passed the relevance filter
+            const articleId = await insertArticle(article, relevantPoliticians);
             
             // If a new article was inserted, add it to the processing queue for enhanced detection
             if (articleId) {
@@ -1282,7 +1341,7 @@ app.post('/api/summarize/:id', async (req, res) => {
       const addedCount = await updatePoliticianMentions(articleId, detectedPoliticians);
       
       // Get full list of politicians for this article
-      const allPoliticians = await new Promise((resolve, reject) => {
+      const allDetectedPoliticians = await new Promise((resolve, reject) => {
         db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
           if (err) reject(err);
           else resolve(rows ? rows.map(row => row.politicianName) : []);
@@ -1302,8 +1361,8 @@ app.post('/api/summarize/:id', async (req, res) => {
         },
         politicians: {
           detected: detectedPoliticians,
-          newlyAdded: addedCount > 0 ? detectedPoliticians.filter(p => allPoliticians.includes(p)).slice(-addedCount) : [],
-          all: allPoliticians
+          newlyAdded: addedCount > 0 ? detectedPoliticians.filter(p => allDetectedPoliticians.includes(p)).slice(-addedCount) : [],
+          all: allDetectedPoliticians
         },
         message: 'Enhanced politician detection completed'
       });
