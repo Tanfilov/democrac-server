@@ -400,6 +400,23 @@ function findAllOccurrences(text, subtext) {
  * @returns {Promise<Array>} Promise resolving to array of detected politician names
  */
 async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleContent, updateArticleContent) {
+  // Special debugging for article #90 which has Netanyahu detection issues
+  if (article.id === 90) {
+    console.log(`\n--- DETAILED DETECTION for article ${article.id} ---`);
+    console.log(`Title: "${article.title}"`);
+    console.log(`Description: "${article.description}"`);
+    
+    // Check for Netanyahu specifically
+    const netanyahuSearchStr = "נתניהו";
+    console.log(`Looking for "${netanyahuSearchStr}" in title: ${article.title.includes(netanyahuSearchStr)}`);
+    console.log(`Looking for "${netanyahuSearchStr}" in description: ${article.description.includes(netanyahuSearchStr)}`);
+    
+    // Debug the politician structure
+    const netanyahuEntry = POLITICIANS.find(p => p.name && p.name.includes('נתניהו'));
+    console.log('Netanyahu entry in politicians list:', netanyahuEntry ? 
+      JSON.stringify(netanyahuEntry) : 'Not found!');
+  }
+  
   console.log(`\n--- Enhanced detection for article ${article.id}: "${article.title}" ---`);
   
   // Step 1: Check title and description
@@ -416,6 +433,11 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
       confidenceScores[p] = (confidenceScores[p] || 0) + 3; // Higher weight for title matches
       detectionMethods[p] = [...(detectionMethods[p] || []), 'title'];
     });
+    
+    // Debug for article #90
+    if (article.id === 90) {
+      console.log(`Title politicians detected: ${JSON.stringify(titlePoliticians)}`);
+    }
   }
   
   // Check description
