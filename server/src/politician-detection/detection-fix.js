@@ -391,9 +391,118 @@ function findAllOccurrences(text, subtext) {
   return indexes;
 }
 
+/**
+ * Enhanced politician detection using confidence scoring
+ * @param {Object} article - Article object with title, description, and content
+ * @param {Array} POLITICIANS - Array of politician objects with their data
+ * @param {Function} scrapeArticleContent - Function to scrape content if needed
+ * @param {Function} updateArticleContent - Function to update article content in DB
+ * @returns {Promise<Array>} Promise resolving to array of detected politician names
+ */
+async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleContent, updateArticleContent) {
+  console.log(`\n--- Enhanced detection for article ${article.id}: "${article.title}" ---`);
+  
+  // Step 1: Check title and description
+  let detectedPoliticians = [];
+  let confidenceScores = {};
+  let detectionMethods = {};
+  
+  // Check title - highest confidence
+  if (article.title) {
+    console.log(`Checking title: ${article.title}`);
+    const titlePoliticians = findPoliticianMentions(article.title, POLITICIANS);
+    titlePoliticians.forEach(p => {
+      detectedPoliticians.push(p);
+      confidenceScores[p] = (confidenceScores[p] || 0) + 3; // Higher weight for title matches
+      detectionMethods[p] = [...(detectionMethods[p] || []), 'title'];
+    });
+  }
+  
+  // Check description
+  if (article.description) {
+    console.log(`Checking description: ${article.description.substring(0, 100)}${article.description.length > 100 ? '...' : ''}`);
+    const descriptionPoliticians = findPoliticianMentions(article.description, POLITICIANS);
+    descriptionPoliticians.forEach(p => {
+      if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
+      confidenceScores[p] = (confidenceScores[p] || 0) + 2; // Medium weight for description matches
+      detectionMethods[p] = [...(detectionMethods[p] || []), 'description'];
+    });
+  }
+  
+  // Step 2: If we have content already, check it
+  if (article.content && article.content.length > 50) {
+    console.log(`Checking content (${article.content.length} characters)`);
+    const contentPoliticians = findPoliticianMentions(article.content, POLITICIANS);
+    contentPoliticians.forEach(p => {
+      if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
+      confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
+      detectionMethods[p] = [...(detectionMethods[p] || []), 'content'];
+    });
+  } 
+  // If we don't have sufficient content, scrape it
+  else if (article.link && scrapeArticleContent) {
+    try {
+      console.log(`Scraping content for politician detection from: ${article.link}`);
+      const scrapedContent = await scrapeArticleContent(article.link);
+      
+      if (scrapedContent && scrapedContent.length > 50) {
+        // Update the article content in the database
+        if (updateArticleContent) {
+          await updateArticleContent(article.id, scrapedContent);
+        }
+        
+        // Check for politicians in the scraped content
+        const contentPoliticians = findPoliticianMentions(scrapedContent, POLITICIANS);
+        contentPoliticians.forEach(p => {
+          if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
+          confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
+          detectionMethods[p] = [...(detectionMethods[p] || []), 'scraped_content'];
+        });
+      }
+    } catch (error) {
+      console.error(`Error scraping content for article ${article.id}:`, error);
+    }
+  }
+  
+  // Step 3: Sort politicians by confidence score and filter out low confidence mentions
+  const politiciansWithScores = detectedPoliticians.map(name => ({
+    name,
+    score: confidenceScores[name] || 0,
+    methods: detectionMethods[name] || []
+  })).sort((a, b) => b.score - a.score);
+  
+  // Identify special and foreign politicians that might need special handling
+  const specialPoliticians = [
+    'דונלד טראמפ', 
+    'ג\'ו ביידן', 
+    'קמאלה האריס',
+    'עמנואל מקרון'
+  ];
+  
+  // Filter results based on confidence score with special rules for certain politicians
+  const highConfidencePoliticians = politiciansWithScores
+    .filter(p => {
+      // For special politicians like Trump, use a lower threshold
+      if (specialPoliticians.includes(p.name)) {
+        return p.score >= 1;
+      }
+      // For regular politicians, use normal threshold
+      return p.score >= 2;
+    })
+    .map(p => p.name);
+  
+  console.log('Politician detection results:', 
+    politiciansWithScores.map(p => `${p.name} (confidence: ${p.score}, methods: ${p.methods.join(',')})`).join(', ')
+  );
+  console.log('High confidence politicians:', highConfidencePoliticians.join(', '));
+  
+  return highConfidencePoliticians;
+}
+
 // Export the functions
 module.exports = {
   findPoliticianMentions,
+  enhancedPoliticianDetection,
   isModifiedPosition,
   hasRequiredContext,
   isExactMatch,

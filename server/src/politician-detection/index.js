@@ -38,7 +38,7 @@ function loadPoliticians(politiciansFilePath) {
 module.exports = {
   // Main detection functions - use improved versions
   findPoliticianMentions: improvedDetection.findPoliticianMentions,
-  enhancedPoliticianDetection: detection.enhancedPoliticianDetection,
+  enhancedPoliticianDetection: improvedDetection.enhancedPoliticianDetection,
   
   // Helper functions
   loadPoliticians,
