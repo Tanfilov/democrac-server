@@ -206,7 +206,14 @@ const POLITICIANS = POLITICIANS_LIST.map(p => {
   // Default English translation (for now, just use the same name)
   // This can be enhanced later with actual translations
   const enName = p.name;
-  return { he: p.name, en: enName, aliases: p.aliases || [] };
+  return { 
+    he: p.name, 
+    en: enName, 
+    position: p.position,
+    aliases: p.aliases || [],
+    requiresContext: p.requiresContext || false,
+    contextIdentifiers: p.contextIdentifiers || []
+  };
 });
 
 // Log the number of politicians loaded for debugging
@@ -329,7 +336,7 @@ const findPoliticianMentions = (text) => {
     for (const prefix of prefixes) {
       const nameWithPrefix = prefix + politicianName;
       
-      if (isExactMatch(normalizedText, nameWithPrefix, wordBoundaries)) {
+      if (isExactMatch(normalizedText, nameWithPrefix, wordBoundaries, politician)) {
         detectedPoliticians.add(politicianName);
         detected = true;
         break;
@@ -344,7 +351,7 @@ const findPoliticianMentions = (text) => {
         for (const prefix of prefixes) {
           const aliasWithPrefix = prefix + alias;
           
-          if (isExactMatch(normalizedText, aliasWithPrefix, wordBoundaries)) {
+          if (isExactMatch(normalizedText, aliasWithPrefix, wordBoundaries, politician)) {
             detectedPoliticians.add(politicianName);
             detected = true;
             break;
@@ -440,8 +447,39 @@ function isPositionFormer(text, position) {
   return false;
 }
 
+// Helper function to check if text contains required context for a politician
+function hasRequiredContext(text, politician, nameMatchIndex, nameLength) {
+  if (!politician.requiresContext || !politician.contextIdentifiers || politician.contextIdentifiers.length === 0) {
+    return true; // No context required
+  }
+  
+  // Define the window size (in characters) to look for context before and after the name
+  const windowSize = 200; // Look for context within 200 characters before and after the name
+  
+  // Get the window of text around the name
+  const startWindow = Math.max(0, nameMatchIndex - windowSize);
+  const endWindow = Math.min(text.length, nameMatchIndex + nameLength + windowSize);
+  
+  const textWindow = text.substring(startWindow, endWindow);
+  
+  // Check if any context identifiers appear in the window
+  const foundContext = politician.contextIdentifiers.some(context => {
+    const contextFound = textWindow.includes(context);
+    if (contextFound) {
+      console.log(`Found required context "${context}" near ${politician.he} at position ${nameMatchIndex}`);
+    }
+    return contextFound;
+  });
+  
+  if (!foundContext) {
+    console.log(`No required context found for ${politician.he} - context needed: [${politician.contextIdentifiers.join(', ')}]`);
+  }
+  
+  return foundContext;
+}
+
 // Helper function to check for exact word matches
-function isExactMatch(text, word, boundaries) {
+function isExactMatch(text, word, boundaries, politician = null) {
   if (!text.includes(word)) return false;
   
   const indexes = findAllOccurrences(text, word);
@@ -451,8 +489,17 @@ function isExactMatch(text, word, boundaries) {
     const afterChar = index + word.length >= text.length ? ' ' : text[index + word.length];
     
     // Standard boundary check
-    if ((boundaries.includes(beforeChar) || index === 0) && 
-        (boundaries.includes(afterChar) || index + word.length === text.length)) {
+    const isMatch = (boundaries.includes(beforeChar) || index === 0) && 
+                   (boundaries.includes(afterChar) || index + word.length === text.length);
+                   
+    if (isMatch) {
+      // If this politician requires context, check for it around this specific match
+      if (politician && politician.requiresContext) {
+        if (!hasRequiredContext(text, politician, index, word.length)) {
+          continue; // Skip this match as it doesn't have the required context
+        }
+      }
+      
       return true;
     }
     
@@ -462,6 +509,13 @@ function isExactMatch(text, word, boundaries) {
       const isSpaceOrBoundaryAfter = afterChar === ' ' || boundaries.includes(afterChar);
       
       if (isSpaceOrBoundaryBefore && isSpaceOrBoundaryAfter) {
+        // If this politician requires context, check for it around this specific match
+        if (politician && politician.requiresContext) {
+          if (!hasRequiredContext(text, politician, index, word.length)) {
+            continue; // Skip this match as it doesn't have the required context
+          }
+        }
+        
         return true;
       }
     }

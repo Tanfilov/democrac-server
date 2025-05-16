@@ -3,7 +3,7 @@
     "name": "בנימין נתניהו",
     "party": "הליכוד",
     "position": "ראש הממשלה",
-    "aliases": [],
+    "aliases": ["ביבי", "נתניהו"],
     "image": "בנימין_נתניהו.png",
     "image_url": ""
   },
@@ -21,7 +21,9 @@
     "position": "שר החוץ",
     "aliases": [],
     "image": "אלי_אליהו_כהן.png",
-    "image_url": ""
+    "image_url": "",
+    "requiresContext": true,
+    "contextIdentifiers": ["שר החוץ", "הליכוד", "חבר הכנסת", "ח\"כ", "חה\"כ", "שר המודיעין", "שר הכלכלה"]
   },
   {
     "name": "יואב גלנט",
@@ -1209,7 +1211,7 @@
     "name": "גלי בהרב מיארה",
     "party": "",
     "position": "היועצת המשפטית לממשלה",
-    "aliases": [],
+    "aliases": ["היועמ\"שית", "היועמ\"ש", "יועמ\"שית"],
     "image": "גלי_בהרב_מיארה.png",
     "image_url": ""
   },
@@ -1219,6 +1221,14 @@
     "position": "ראש השב\"כ",
     "aliases": [],
     "image": "רונן_בר.png",
+    "image_url": ""
+  },
+  {
+    "name": "יאיר גולן",
+    "party": "דמוקרטים",
+    "position": "",
+    "aliases": [],
+    "image": "יאיר_גולן.png",
     "image_url": ""
   },
   {
