@@ -7,4 +7,19 @@ test-*.js
 # Ignore any documentation or development-only files
 *.md
 !README.md
-docs/ 
+docs/
+
+# Ignore garbage candidates folder (unused files storage)
+garbage-candidates/
+
+# Ignore cleanup files directory
+cleanup-files/
+
+# Ignore legacy and temporary directories
+legacy-politician-detection/
+tmp-politicians/
+tmp/
+exports/
+
+# Ignore any local .db files (development databases)
+*.db 
