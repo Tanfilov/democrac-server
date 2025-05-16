@@ -110,17 +110,24 @@ function scorePoliticianRelevance(article, detectedPoliticians) {
  * @param {Array} scoredPoliticians - Array of politicians with relevance scores
  * @param {Object} options - Options for filtering
  * @param {number} options.maxCount - Maximum number of politicians to return (default: 5)
+ * @param {number} options.minScore - Minimum score required to be considered (default: 1)
  * @returns {Array} Array of the most relevant politicians
  */
 function getRelevantPoliticians(scoredPoliticians, options = {}) {
   const maxCount = options.maxCount || 5;
+  const minScore = options.minScore !== undefined ? options.minScore : 1;
   
   // Filter to only include relevant politicians based on rules
   let relevantPoliticians = scoredPoliticians.filter(p => p.isRelevant);
   
-  // If no one is relevant but we have politicians, take the top scoring ones
+  // If no one is relevant but we have politicians with non-zero scores, take the top scoring ones
   if (relevantPoliticians.length === 0 && scoredPoliticians.length > 0) {
-    relevantPoliticians = scoredPoliticians.slice(0, Math.min(2, scoredPoliticians.length));
+    // Only include politicians with scores above the minimum threshold
+    const politiciansWithMinScore = scoredPoliticians.filter(p => p.score >= minScore);
+    
+    if (politiciansWithMinScore.length > 0) {
+      relevantPoliticians = politiciansWithMinScore.slice(0, Math.min(2, politiciansWithMinScore.length));
+    }
   }
   
   // Cap to maximum count
