@@ -22,7 +22,7 @@ function findPoliticianMentions(text, POLITICIANS) {
   
   // 1. Direct name and alias matching
   POLITICIANS.forEach(politician => {
-    const politicianName = politician.name || politician.he; // Support both name structures
+    const politicianName = politician.name;
     let detected = false;
     
     // Check exact name with various Hebrew prefixes
@@ -91,7 +91,7 @@ function findPoliticianMentions(text, POLITICIANS) {
         if (politiciansWithPosition.length > 0) {
           // New approach: only detect by position if there's a partial name indicator nearby
           const politician = politiciansWithPosition[0]; // Take the first one
-          const politicianName = politician.name || politician.he;
+          const politicianName = politician.name;
           
           // Check for partial name indicators near the position
           const positionIndex = normalizedText.indexOf(posWithPrefix);
@@ -254,13 +254,13 @@ function hasRequiredContext(text, politician, nameMatchIndex, nameLength) {
   const foundContext = politician.contextIdentifiers.some(context => {
     const contextFound = textWindow.includes(context);
     if (contextFound) {
-      console.log(`Found required context "${context}" near ${politician.name || politician.he} at position ${nameMatchIndex}`);
+      console.log(`Found required context "${context}" near ${politician.name} at position ${nameMatchIndex}`);
     }
     return contextFound;
   });
   
   if (!foundContext) {
-    console.log(`No required context found for ${politician.name || politician.he} - context needed: [${politician.contextIdentifiers.join(', ')}]`);
+    console.log(`No required context found for ${politician.name} - context needed: [${politician.contextIdentifiers.join(', ')}]`);
   }
   
   return foundContext;
