@@ -197,24 +197,7 @@ const NEWS_SOURCES = [
 // Track last successful request time for each source
 const lastSuccessfulRequests = {};
 
-// Load politicians from JSON file
-const POLITICIANS_DATA = fs.readFileSync(path.join(__dirname, '../../data/politicians/politicians.json'), 'utf8');
-const POLITICIANS_LIST = JSON.parse(POLITICIANS_DATA);
-
-// Format for detection (Hebrew name and possible English translation)
-const POLITICIANS = POLITICIANS_LIST.map(p => {
-  // Default English translation (for now, just use the same name)
-  // This can be enhanced later with actual translations
-  const enName = p.name;
-  return { 
-    he: p.name, 
-    en: enName, 
-    position: p.position,
-    aliases: p.aliases || [],
-    requiresContext: p.requiresContext || false,
-    contextIdentifiers: p.contextIdentifiers || []
-  };
-});
+// Import politician detection moduleconst politicianDetection = require('./politicians');// Load politicians from JSON fileconst politiciansPath = path.join(__dirname, '../../data/politicians/politicians.json');const POLITICIANS = politicianDetection.loadPoliticians(politiciansPath);
 
 // Log the number of politicians loaded for debugging
 console.log(`Loaded ${POLITICIANS.length} politicians for detection`);
@@ -312,100 +295,7 @@ const extractCleanDescription = (item, source) => {
   return plainContent.length > 150 ? plainContent.substring(0, 147) + '...' : plainContent;
 };
 
-// Find politician mentions in text
-const findPoliticianMentions = (text) => {
-  if (!text) return [];
-  
-  // Hebrew prefixes that might appear before names
-  const prefixes = ['', 'ל', 'מ', 'ב', 'ו', 'ש', 'ה'];
-  const wordBoundaries = [' ', '.', ',', ':', ';', '?', '!', '"', "'", '(', ')', '[', ']', '{', '}', '\n', '\t', '"', '"'];
-  
-  // Normalize quotes in the text to standard quote characters
-  const normalizedText = text
-    .replace(/[""״]/g, '"')  // Normalize various quote types to standard quotes
-    .replace(/['׳']/g, "'"); // Normalize various apostrophe types
-  
-  const detectedPoliticians = new Set();
-  
-  // 1. Direct name and alias matching
-  POLITICIANS.forEach(politician => {
-    const politicianName = politician.he;
-    let detected = false;
-    
-    // Check exact name with various Hebrew prefixes
-    for (const prefix of prefixes) {
-      const nameWithPrefix = prefix + politicianName;
-      
-      if (isExactMatch(normalizedText, nameWithPrefix, wordBoundaries, politician)) {
-        detectedPoliticians.add(politicianName);
-        detected = true;
-        break;
-      }
-    }
-    
-    // Check aliases if not detected by name
-    if (!detected && politician.aliases && politician.aliases.length > 0) {
-      for (const alias of politician.aliases) {
-        if (alias.length < 3) continue; // Skip very short aliases
-        
-        for (const prefix of prefixes) {
-          const aliasWithPrefix = prefix + alias;
-          
-          if (isExactMatch(normalizedText, aliasWithPrefix, wordBoundaries, politician)) {
-            detectedPoliticians.add(politicianName);
-            detected = true;
-            break;
-          }
-        }
-        
-        if (detected) break;
-      }
-    }
-  });
-  
-  // 2. Position-based detection
-  const positionMap = {
-    'ראש הממשלה': 'ראש הממשלה',
-    'רה"מ': 'ראש הממשלה',
-    'ראש האופוזיציה': 'ראש האופוזיציה',
-    'שר הביטחון': 'שר הביטחון',
-    'שר האוצר': 'שר האוצר',
-    'שר החוץ': 'שר החוץ',
-    'שר הפנים': 'שר הפנים',
-    'השר לביטחון לאומי': 'השר לביטחון לאומי',
-    'יושב ראש הכנסת': 'יושב ראש הכנסת',
-    'נשיא המדינה': 'נשיא המדינה',
-    'הנשיא': 'נשיא המדינה'
-  };
-  
-  // Check if any positions are mentioned in the text
-  Object.entries(positionMap).forEach(([positionTerm, standardPosition]) => {
-    // Check with prefixes
-    for (const prefix of prefixes) {
-      const posWithPrefix = prefix + positionTerm;
-      
-      if (isExactMatch(normalizedText, posWithPrefix, wordBoundaries)) {
-        // Check if this is a former position (contains "לשעבר")
-        const isFormerPosition = isPositionFormer(normalizedText, posWithPrefix);
-        
-        // Skip detection for former positions
-        if (isFormerPosition) {
-          continue;
-        }
-        
-        // Only detect current positions
-        const politiciansWithPosition = POLITICIANS.filter(p => p.position === standardPosition);
-        
-        if (politiciansWithPosition.length > 0) {
-          const politician = politiciansWithPosition[0]; // Take the first one
-          detectedPoliticians.add(politician.he);
-        }
-      }
-    }
-  });
-  
-  return Array.from(detectedPoliticians);
-};
+// Use findPoliticianMentions from the politicians moduleconst findPoliticianMentions = (text) => {  return politicianDetection.findPoliticianMentions(text, POLITICIANS);};
 
 // Helper function to check if a position is described as former in the text
 function isPositionFormer(text, position) {
