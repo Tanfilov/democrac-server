@@ -75,12 +75,16 @@ const parser = new Parser({
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml, */*',
     'Accept-Language': 'en-US,en;q=0.9,he;q=0.8',
-    'Referer': 'https://www.mako.co.il/',
-    'Cache-Control': 'no-cache'
+    'Referer': 'https://www.google.com/',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
   },
-  timeout: 10000, // Increase timeout to 10 seconds
+  timeout: 15000, // Increase timeout to 15 seconds
   defaultRSS: 2.0,
-  maxRedirects: 5
+  maxRedirects: 5,
+  requestOptions: {
+    rejectUnauthorized: false // Sometimes needed for SSL certificates
+  }
 });
 
 // Initialize SQLite database
@@ -172,6 +176,21 @@ const NEWS_SOURCES = [
     name: 'Mako Law',
     alternativeUrl: 'https://www.mako.co.il/news-law?partner=rss',
     minRequestInterval: 30 * 60 * 1000 // 30 minutes between requests
+  },
+  { 
+    url: 'https://rss.walla.co.il/feed/2686', 
+    name: 'Walla Politics',
+    minRequestInterval: 20 * 60 * 1000 // 20 minutes between requests
+  },
+  { 
+    url: 'https://rss.walla.co.il/feed/2689', 
+    name: 'Walla Knesset',
+    minRequestInterval: 20 * 60 * 1000 // 20 minutes between requests
+  },
+  { 
+    url: 'https://www.maariv.co.il/Rss/RssFeedsPolitiMedini', 
+    name: 'Maariv Politics',
+    minRequestInterval: 15 * 60 * 1000 // 15 minutes between requests
   }
 ];
 
@@ -206,10 +225,34 @@ const extractImageUrl = (item) => {
     if (contentMatch) return contentMatch[1];
   }
   
+  // For Walla feeds with CDATA sections
+  if (item.content && item.content.includes('CDATA')) {
+    const cdataMatch = item.content.match(/\<!\[CDATA\[.*?<img[^>]+src=["']([^"'>]+)["'].*?\]\]>/s);
+    if (cdataMatch) return cdataMatch[1];
+  }
+  
+  // For Maariv feeds using the specific img format
+  if (item.content && item.content.includes('align=\'right\'')) {
+    const maarivMatch = item.content.match(/src='([^']+)'/);
+    if (maarivMatch) return maarivMatch[1];
+  }
+  
   // Lastly, try to find image URL in the description field
   if (item.description) {
     const descMatch = item.description.match(/<img[^>]+src=["']([^"'>]+)["']/);
     if (descMatch) return descMatch[1];
+    
+    // For Walla feeds with CDATA in description
+    if (item.description.includes('CDATA')) {
+      const cdataDescMatch = item.description.match(/\<!\[CDATA\[.*?<img[^>]+src=["']([^"'>]+)["'].*?\]\]>/s);
+      if (cdataDescMatch) return cdataDescMatch[1];
+    }
+    
+    // For Maariv feeds using the specific img format in description
+    if (item.description.includes('align=\'right\'')) {
+      const maarivDescMatch = item.description.match(/src='([^']+)'/);
+      if (maarivDescMatch) return maarivDescMatch[1];
+    }
   }
   
   return null;
@@ -223,6 +266,22 @@ const extractCleanDescription = (item, source) => {
   if (source === 'Ynet' && content.includes('</div>')) {
     // Extract the text after the closing div that contains the image
     const matches = content.match(/<\/div>(.*?)$/s);
+    if (matches && matches[1]) {
+      content = matches[1].trim();
+    }
+  }
+  // For Walla feeds, clean up CDATA content and extract relevant parts
+  else if ((source === 'Walla Politics' || source === 'Walla Knesset') && content.includes('CDATA')) {
+    // Extract content from CDATA sections
+    const cdataMatches = content.match(/\<!\[CDATA\[(.*?)\]\]>/s);
+    if (cdataMatches && cdataMatches[1]) {
+      content = cdataMatches[1].trim();
+    }
+  }
+  // For Maariv feeds, extract text after the image tag
+  else if (source === 'Maariv Politics' && content.includes('align=\'right\'')) {
+    // Extract the text after the image HTML
+    const matches = content.match(/<\/a>\s*<br\/>(.*?)(<br\/>\s*|$)/);
     if (matches && matches[1]) {
       content = matches[1].trim();
     }
@@ -367,8 +426,25 @@ const enhancedPoliticianDetection = async (article) => {
     }
   }
   
-  // Filter results based on confidence score
-  const highConfidencePoliticians = detectedPoliticians.filter(p => confidenceScores[p] >= 2);
+  // Identify special and foreign politicians (like Trump) that might need special handling
+  const specialPoliticians = [
+    'דונלד טראמפ', 
+    'ג\'ו ביידן', 
+    'קמאלה האריס',
+    'עמנואל מקרון',
+    'הנשיא מקרון',
+    'נשיא סוריה'
+  ];
+  
+  // Filter results based on confidence score with special rules for certain politicians
+  const highConfidencePoliticians = detectedPoliticians.filter(p => {
+    // For special politicians like Trump, use a lower threshold
+    if (specialPoliticians.includes(p)) {
+      return confidenceScores[p] >= 1;
+    }
+    // For regular politicians, use normal threshold
+    return confidenceScores[p] >= 2;
+  });
   
   // Log detection details for debugging
   console.log(`Article ID ${article.id}: Detected politicians with confidence:`, 
@@ -452,6 +528,24 @@ const scrapeArticleContent = async (url) => {
     // For Mako articles
     else if (url.includes('mako.co.il')) {
       mainContent = $('.article-body').text() || $('.article').text();
+    }
+    // For Walla articles
+    else if (url.includes('walla.co.il')) {
+      mainContent = $('.article-content').text() || $('.article__content').text() || $('.article').text();
+      
+      // If main content is still empty, try other common selectors
+      if (!mainContent || mainContent.trim() === '') {
+        mainContent = $('.item-text').text() || $('.article-body').text();
+      }
+    }
+    // For Maariv articles
+    else if (url.includes('maariv.co.il')) {
+      mainContent = $('.article-body-text').text() || $('.article-body').text() || $('.article-content').text();
+      
+      // Try to get more specific content if possible
+      if (!mainContent || mainContent.trim() === '') {
+        mainContent = $('.entry-content').text() || $('.entry-body').text() || $('article').text();
+      }
     }
     // Generic fallback
     else {

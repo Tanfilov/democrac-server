@@ -26,11 +26,39 @@
 # Start the development server
 npm run dev
 
-# Stop the running server (if needed)
-# Find the process using port 3000
+# IMPORTANT: Always stop any running servers before starting a new one
+# Option 1: Find and kill the process using port 3000
 Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess
-# Kill the process
 Stop-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess
+
+# Option 2: Kill all Node.js processes (useful when multiple servers are running)
+Get-Process | Where-Object {$_.ProcessName -like '*node*'} | Stop-Process -Force
+
+# Option 3: For all local development servers, ensure port is free before starting
+# Check if port 3000 is in use
+$portInUse = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
+if ($portInUse) {
+    Write-Host "Port 3000 is in use. Stopping process..."
+    Stop-Process -Id $portInUse.OwningProcess -Force
+}
+cd server; npm run dev
+```
+
+### Running Commands Sequentially in PowerShell
+```powershell
+# PowerShell doesn't support && operator like Bash
+# Instead use semicolons to run commands sequentially
+cd server; npm run dev
+
+# For complex operations, use multiple lines:
+cd server
+npm run dev
+
+# Or use a script block:
+& {
+    cd server
+    npm run dev
+}
 ```
 
 ### Deployment
