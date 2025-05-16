@@ -2,6 +2,8 @@
 const fs = require('fs');
 const path = require('path');
 const detection = require('./detection');
+const improvedDetection = require('./detection-fix');
+const relevanceScoring = require('./relevance-scoring');
 
 /**
  * Load politicians data from JSON file
@@ -32,19 +34,26 @@ function loadPoliticians(politiciansFilePath) {
   }
 }
 
-// Export functions from detection.js
+// Export functions from detection modules
 module.exports = {
-  // Main detection functions
-  findPoliticianMentions: detection.findPoliticianMentions,
+  // Main detection functions - use improved versions
+  findPoliticianMentions: improvedDetection.findPoliticianMentions,
   enhancedPoliticianDetection: detection.enhancedPoliticianDetection,
   
   // Helper functions
   loadPoliticians,
   
-  // Utility functions
-  isPositionFormer: detection.isPositionFormer,
-  hasRequiredContext: detection.hasRequiredContext,
-  isExactMatch: detection.isExactMatch,
-  findAllOccurrences: detection.findAllOccurrences,
-  isInsideQuotes: detection.isInsideQuotes
+  // Utility functions from improved detection
+  isModifiedPosition: improvedDetection.isModifiedPosition,
+  hasRequiredContext: improvedDetection.hasRequiredContext,
+  isExactMatch: improvedDetection.isExactMatch,
+  findAllOccurrences: improvedDetection.findAllOccurrences,
+  isInsideQuotes: improvedDetection.isInsideQuotes,
+  
+  // Export relevance scoring functions
+  scorePoliticianRelevance: relevanceScoring.scorePoliticianRelevance,
+  getRelevantPoliticians: relevanceScoring.getRelevantPoliticians,
+  countOccurrences: relevanceScoring.countOccurrences,
+  countNearQuotes: relevanceScoring.countNearQuotes,
+  countInReactionContext: relevanceScoring.countInReactionContext
 }; 
