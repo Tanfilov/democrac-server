@@ -1,0 +1,25 @@
+Testing position detection with 'former' qualifier
+Text: נפתלי בנת, ראש הממשלה לשעבר
+Position: ראש הממשלה
+Former term: לשעבר
+Position index: 11
+Text after position: " לשעבר"
+Contains 'former': true
+Trimmed after text: "לשעבר"
+After trimming, starts with 'former': true
+Has punctuation then 'former': true
+
+FINAL RESULT - Is former position: true
+SUCCESS: Our solution will correctly skip detecting Netanyahu
+
+----------------------------------------
+ISSUE ANALYSIS
+----------------------------------------
+Problem: When text mentions 'former prime minister' (ראש הממשלה לשעבר),
+the system incorrectly associates it with Netanyahu (current prime minister).
+
+Solution implemented:
+1. Check for 'לשעבר' (former) after any position term
+2. When 'לשעבר' is found, skip the current position detection
+3. This prevents Netanyahu being detected when Bennett is mentioned as former PM
+----------------------------------------

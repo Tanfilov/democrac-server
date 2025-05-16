@@ -371,9 +371,6 @@ const findPoliticianMentions = (text) => {
     'הנשיא': 'נשיא המדינה'
   };
   
-  // Terms indicating former position holders
-  const formerTerms = ['לשעבר', 'לשאבר', 'לשבער', 'לשבער', 'הקודם', 'הקודמת', 'היוצא', 'היוצאת', 'ה-', 'ה׳', 'ה־'];
-  
   // Check if any positions are mentioned in the text
   Object.entries(positionMap).forEach(([positionTerm, standardPosition]) => {
     // Check with prefixes
@@ -381,27 +378,20 @@ const findPoliticianMentions = (text) => {
       const posWithPrefix = prefix + positionTerm;
       
       if (isExactMatch(normalizedText, posWithPrefix, wordBoundaries)) {
-        // Check if this is a former position holder by looking for terms like "former" before the position
-        const isFormerPosition = formerTerms.some(term => {
-          // Look for the term before the position (within reasonable distance)
-          const termIndex = normalizedText.indexOf(term);
-          if (termIndex === -1) return false;
-          
-          const posIndex = normalizedText.indexOf(posWithPrefix);
-          // Check if the "former" term appears before the position and within 20 characters
-          return termIndex < posIndex && posIndex - termIndex < 20;
-        });
+        // Check if this is a former position (contains "לשעבר")
+        const isFormerPosition = isPositionFormer(normalizedText, posWithPrefix);
         
-        // Only detect current position holders, not former ones
-        if (!isFormerPosition) {
-          // Find politicians with this position
-          const politiciansWithPosition = POLITICIANS.filter(p => p.position === standardPosition);
-          
-          if (politiciansWithPosition.length > 0) {
-            const politician = politiciansWithPosition[0]; // Take the first one
-            console.log(`Found politician ${politician.he} via position "${standardPosition}"`);
-            detectedPoliticians.add(politician.he);
-          }
+        // Skip detection for former positions
+        if (isFormerPosition) {
+          continue;
+        }
+        
+        // Only detect current positions
+        const politiciansWithPosition = POLITICIANS.filter(p => p.position === standardPosition);
+        
+        if (politiciansWithPosition.length > 0) {
+          const politician = politiciansWithPosition[0]; // Take the first one
+          detectedPoliticians.add(politician.he);
         }
       }
     }
@@ -409,6 +399,25 @@ const findPoliticianMentions = (text) => {
   
   return Array.from(detectedPoliticians);
 };
+
+// Helper function to check if a position is described as former in the text
+function isPositionFormer(text, position) {
+  // Check if "לשעבר" appears after the position
+  const positionIndex = text.indexOf(position);
+  if (positionIndex >= 0) {
+    // Get the text after the position
+    const afterText = text.substring(positionIndex + position.length);
+    
+    // Check if "לשעבר" appears immediately or with some space/punctuation after the position
+    // This handles cases like "ראש הממשלה לשעבר" or "ראש הממשלה, לשעבר"
+    if (afterText.trim().startsWith('לשעבר') || 
+        afterText.match(/^[ \t,.;:]+לשעבר/) ||
+        afterText.match(/^[ \t,.;:]+ה?לשעבר/)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // Helper function to check for exact word matches
 function isExactMatch(text, word, boundaries) {
