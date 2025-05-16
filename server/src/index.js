@@ -408,13 +408,34 @@ function isPositionFormer(text, position) {
     // Get the text after the position
     const afterText = text.substring(positionIndex + position.length);
     
-    // Check if "לשעבר" appears immediately or with some space/punctuation after the position
-    // This handles cases like "ראש הממשלה לשעבר" or "ראש הממשלה, לשעבר"
+    // Case 1: "לשעבר" (former) appears immediately or with punctuation
     if (afterText.trim().startsWith('לשעבר') || 
         afterText.match(/^[ \t,.;:]+לשעבר/) ||
         afterText.match(/^[ \t,.;:]+ה?לשעבר/)) {
       return true;
     }
+    
+    // Case 2: "הקודם" (previous/former) appears after the position
+    if (afterText.trim().startsWith('הקודם') || 
+        afterText.match(/^[ \t,.;:]+הקודם/)) {
+      return true;
+    }
+    
+    // Case 3: Reference to a specific government or past period
+    if (afterText.match(/בממשלת|בממשל/) ||
+        afterText.match(/הראשונה|השנייה|השלישית|הרביעית/) ||
+        afterText.match(/הקודמת|היוצאת|הזמנית/)) {
+      return true;
+    }
+    
+    // Case 4: Position "של" (of) someone else, indicating historical reference
+    if (afterText.match(/[ \t,.;:]*של[ \t]+[א-ת]/)) {
+      return true;
+    }
+    
+    // Case 5: Position followed by a name that's not the current position holder
+    // This is a more complex case that would require checking against current holders
+    // For now, we'll handle this through the other patterns
   }
   return false;
 }
