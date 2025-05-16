@@ -364,13 +364,13 @@ function hasRequiredContext(text, politician, nameMatchIndex, nameLength) {
   const foundContext = politician.contextIdentifiers.some(context => {
     const contextFound = textWindow.includes(context);
     if (contextFound) {
-      console.log(`Found required context "${context}" near ${politician.he} at position ${nameMatchIndex}`);
+      console.log(`Found required context "${context}" near ${politician.name} at position ${nameMatchIndex}`);
     }
     return contextFound;
   });
   
   if (!foundContext) {
-    console.log(`No required context found for ${politician.he} - context needed: [${politician.contextIdentifiers.join(', ')}]`);
+    console.log(`No required context found for ${politician.name} - context needed: [${politician.contextIdentifiers.join(', ')}]`);
   }
   
   return foundContext;
@@ -1879,7 +1879,7 @@ app.get('/api/debug/test-politician-detection', (req, res) => {
     for (let i = 0; i < 5 && i < POLITICIANS.length; i++) {
       const randomIndex = Math.floor(Math.random() * POLITICIANS.length);
       randomPoliticians.push({
-        name: POLITICIANS[randomIndex].he,
+        name: POLITICIANS[randomIndex].name,
         aliases: POLITICIANS[randomIndex].aliases
       });
     }

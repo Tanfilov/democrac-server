@@ -15,12 +15,12 @@ function loadPoliticians(politiciansFilePath) {
     const politiciansData = fs.readFileSync(politiciansFilePath, 'utf8');
     const politiciansList = JSON.parse(politiciansData);
     
-    // Format for detection (Hebrew name and possible English translation)
+    // Format for detection (using name property)
     return politiciansList.map(p => {
       // Default English translation (for now, just use the same name)
       const enName = p.name;
       return { 
-        he: p.name, 
+        name: p.name, 
         en: enName, 
         position: p.position,
         aliases: p.aliases || [],
