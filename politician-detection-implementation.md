@@ -24,6 +24,7 @@ The implementation includes several key components:
 - **Word Boundary Check**: Ensures names are standalone words, not parts of other words
 - **Quote Context Analysis**: Special handling for text within quotation marks
 - **Positional Context**: Maps positions to current officeholders
+- **Former Position Handling**: Identifies and ignores references to "former" position holders when doing position-based detection
 
 ### 4. Confidence Scoring System
 
@@ -66,8 +67,12 @@ const findPoliticianMentions = (text) => {
     // Check aliases
   });
   
-  // 2. Position-based detection
+  // 2. Position-based detection with former position handling
+  // Terms indicating former position holders
+  const formerTerms = ['לשעבר', 'לשאבר', 'לשבער', 'הקודם', 'הקודמת', 'היוצא', 'היוצאת'];
+  
   Object.entries(positionMap).forEach(([positionTerm, standardPosition]) => {
+    // Check if this is a former position (ignore in position-based detection)
     // Find politicians with this position
   });
   
