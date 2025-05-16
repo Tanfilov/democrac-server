@@ -278,13 +278,26 @@ const extractCleanDescription = (item, source) => {
       content = cdataMatches[1].trim();
     }
   }
-  // For Maariv feeds, extract text after the image tag
-  else if (source === 'Maariv Politics' && content.includes('align=\'right\'')) {
-    // Extract the text after the image HTML
-    const matches = content.match(/<\/a>\s*<br\/>(.*?)(<br\/>\s*|$)/);
-    if (matches && matches[1]) {
-      content = matches[1].trim();
+  // For Maariv feeds, extract text after the image tag and more thoroughly clean HTML
+  else if (source === 'Maariv Politics') {
+    // First handle the case with image align='right'
+    if (content.includes('align=\'right\'')) {
+      const matches = content.match(/<\/a>\s*<br\/>(.*?)(<br\/>\s*|$)/);
+      if (matches && matches[1]) {
+        content = matches[1].trim();
+      }
     }
+    
+    // Remove all HTML tags that might remain
+    content = content.replace(/<[^>]+>/g, ' ');
+    // Convert HTML entities
+    content = content.replace(/&nbsp;/g, ' ');
+    content = content.replace(/&amp;/g, '&');
+    content = content.replace(/&lt;/g, '<');
+    content = content.replace(/&gt;/g, '>');
+    content = content.replace(/&quot;/g, '"');
+    // Remove multiple spaces
+    content = content.replace(/\s+/g, ' ').trim();
   }
   
   // Convert any remaining HTML to plain text
@@ -1485,7 +1498,7 @@ app.get('/api/news', (req, res) => {
     let baseQuery = `
       SELECT 
         a.*,
-        GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
+        GROUP_CONCAT(DISTINCT pm.politicianName) as mentionedPoliticians
       FROM articles a
       LEFT JOIN politician_mentions pm ON a.id = pm.articleId
       WHERE a.description IS NOT NULL AND a.description != '' 
@@ -1561,7 +1574,10 @@ app.get('/api/news', (req, res) => {
         
         // Format the response
         const formattedArticles = rows.map(row => {
-          // Deduplicate politician names
+          // Generate a unique id property if needed
+          const article = { ...row };
+          
+          // Deduplicate politician names 
           let mentionedPoliticians = [];
           
           if (row.mentionedPoliticians) {
@@ -1575,13 +1591,16 @@ app.get('/api/news', (req, res) => {
             }
           }
           
+          // Ensure there are no duplicate articles with same ID
+          article.uuid = article.id ? `article-${article.id}` : `article-${uuidv4()}`;
+          
           // Log for debugging
           if (row.id && mentionedPoliticians.length > 0) {
             console.log(`Article ${row.id} has politicians: ${JSON.stringify(mentionedPoliticians)}`);
           }
             
           return {
-            ...row,
+            ...article,
             mentionedPoliticians
           };
         });
@@ -1644,7 +1663,7 @@ app.get('/api/news/:id', (req, res) => {
   db.get(
     `SELECT 
       a.*,
-      GROUP_CONCAT(pm.politicianName) as mentionedPoliticians
+      GROUP_CONCAT(DISTINCT pm.politicianName) as mentionedPoliticians
     FROM articles a
     LEFT JOIN politician_mentions pm ON a.id = pm.articleId
     WHERE a.id = ?
@@ -1663,8 +1682,9 @@ app.get('/api/news/:id', (req, res) => {
       // Format the response with deduplicated politician names
       const article = {
         ...row,
+        uuid: `article-${row.id}`,
         mentionedPoliticians: row.mentionedPoliticians 
-          ? [...new Set(row.mentionedPoliticians.split(','))]
+          ? [...new Set(row.mentionedPoliticians.split(',').filter(p => p && p.trim() !== ''))]
           : []
       };
       
