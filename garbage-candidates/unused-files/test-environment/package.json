@@ -1,0 +1,39 @@
+{
+  "name": "democracy-server-test-environment",
+  "version": "1.0.0",
+  "description": "Test environment for democracy-server",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "start:test": "cross-env NODE_ENV=test node src/index.js",
+    "capture-feeds": "node tools/capture-feeds.js",
+    "test:detection": "node tools/test-detection-accuracy.js",
+    "test:detection:specific": "node tools/test-specific-detection.js",
+    "test:detection:improved": "node tools/test-improved-detection.js",
+    "test:detection:html": "node tools/test-detection-html.js",
+    "test:specific:html": "node tools/test-specific-html.js",
+    "test:real:articles": "node tools/test-real-articles.js",
+    "test:false:positives": "node tools/test-false-positives.js",
+    "debug:politician": "node tools/test-specific-detection.js debug"
+  },
+  "dependencies": {
+    "axios": "^1.4.0",
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "cross-env": "^7.0.3",
+    "date-fns": "^2.30.0",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "groq-sdk": "^0.3.0",
+    "html-to-text": "^9.0.5",
+    "open": "^9.1.0",
+    "rss-parser": "^3.13.0",
+    "sqlite3": "^5.1.6",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.5.0",
+    "supertest": "^6.3.3"
+  }
+} 

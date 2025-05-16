@@ -1,0 +1,376 @@
+﻿
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ч“Ч•Ч— Ч–Ч™Ч”Ч•Ч™ Ч¤Ч•ЧњЧ™ЧЧ™Ч§ЧђЧ™Чќ Ч‘ЧћЧђЧћЧЁЧ™Чќ ЧђЧћЧ™ЧЄЧ™Ч™Чќ</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      color: #003366;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    h2 {
+      color: #003366;
+      margin-top: 30px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      background-color: white;
+      table-layout: fixed;
+    }
+    th, td {
+      padding: 12px 15px;
+      border: 1px solid #ddd;
+      text-align: right;
+      vertical-align: top;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    th {
+      background-color: #003366;
+      color: white;
+      position: sticky;
+      top: 0;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    tr:hover {
+      background-color: #f1f1f1;
+    }
+    .id-cell {
+      width: 5%;
+      text-align: center;
+      font-weight: bold;
+    }
+    .article-id-cell {
+      width: 10%;
+      font-family: monospace;
+      text-align: center;
+    }
+    .politician-cell {
+      width: 15%;
+    }
+    .title-cell {
+      width: 20%;
+    }
+    .description-cell {
+      width: 20%;
+    }
+    .content-cell {
+      width: 35%;
+    }
+    .politician-tag {
+      display: inline-block;
+      margin: 2px;
+      padding: 3px 8px;
+      background-color: #e6f7ff;
+      border: 1px solid #1890ff;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    .summary {
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #e6f7ff;
+      border-radius: 5px;
+    }
+    .source-info {
+      font-size: 0.8em;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .politician-stats {
+      margin-top: 15px;
+    }
+    .politician-stat-item {
+      display: inline-block;
+      margin: 5px;
+      padding: 5px 10px;
+      background-color: #f0f8ff;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Ч“Ч•Ч— Ч–Ч™Ч”Ч•Ч™ Ч¤Ч•ЧњЧ™ЧЧ™Ч§ЧђЧ™Чќ Ч‘ЧћЧђЧћЧЁЧ™Чќ ЧђЧћЧ™ЧЄЧ™Ч™Чќ</h1>
+  
+  <div class="summary">
+    <h2>ЧЎЧ™Ч›Ч•Чќ</h2>
+    <p>ЧЎЧљ Ч”Ч›Чњ ЧћЧђЧћЧЁЧ™Чќ Ч©Ч Ч•ЧЄЧ—Ч•: <strong>15</strong></p>
+    <p>ЧЎЧљ Ч”Ч›Чњ Ч¤Ч•ЧњЧ™ЧЧ™Ч§ЧђЧ™Чќ Ч™Ч™Ч—Ч•Ч“Ч™Ч™Чќ Ч©Ч–Ч•Ч”Ч•: <strong>12</strong></p>
+    
+    <div class="politician-stats">
+      <h3>ЧЎЧЧЧ™ЧЎЧЧ™Ч§ЧЄ Ч–Ч™Ч”Ч•Ч™ Ч¤Ч•ЧњЧ™ЧЧ™Ч§ЧђЧ™Чќ:</h3>
+      <div class="politician-stat-item">Ч‘Ч Ч™ЧћЧ™Чџ Ч ЧЄЧ Ч™Ч”Ч•: 6 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤: 3 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">ЧђЧ™ЧЄЧћЧЁ Ч‘Чџ Ч’Ч‘Ч™ЧЁ: 2 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">ЧђЧњЧ™ Ч›Ч”Чџ: 2 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">ЧЧњЧ™ Ч’Ч•ЧЧњЧ™Ч‘: 1 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">Ч™Ч•ЧњЧ™Ч” ЧћЧњЧ™Ч Ч•Ч‘ЧЎЧ§Ч™: 1 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">Ч™ЧђЧ™ЧЁ ЧњЧ¤Ч™Ч“: 1 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">Ч’Ч“Ч™ ЧђЧ™Ч–Ч Ч§Ч•Ч: 1 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">Ч™Ч©ЧЁЧђЧњ Ч›"ЧҐ: 1 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">ЧђЧЁЧ™Ч” Ч“ЧЁЧўЧ™: 1 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">Ч¤Ч Ч™Ч Ч” ЧЄЧћЧ Ч•: 1 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div><div class="politician-stat-item">ЧћЧЧ™ Ч¦ЧЁЧ¤ЧЄЧ™ Ч”ЧЁЧ›Ч‘Ч™: 1 ЧђЧ–Ч›Ч•ЧЁЧ™Чќ</div>
+    </div>
+  </div>
+
+  <table>
+    <tr>
+      <th class="id-cell">#</th>
+      <th class="article-id-cell">ЧћЧ–Ч”Ч” ЧћЧђЧћЧЁ</th>
+      <th class="politician-cell">Ч¤Ч•ЧњЧ™ЧЧ™Ч§ЧђЧ™Чќ Ч©Ч–Ч•Ч”Ч•</th>
+      <th class="title-cell">Ч›Ч•ЧЄЧЁЧЄ</th>
+      <th class="description-cell">ЧЄЧ§Ч¦Ч™ЧЁ</th>
+      <th class="content-cell">ЧЄЧ•Ч›Чџ</th>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">1</td>
+      <td class="article-id-cell">14008838</td>
+      <td class="politician-cell">
+        <div class="politician-tag">ЧЧњЧ™ Ч’Ч•ЧЧњЧ™Ч‘</div><div class="politician-tag">Ч™Ч•ЧњЧ™Ч” ЧћЧњЧ™Ч Ч•Ч‘ЧЎЧ§Ч™</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Maariv.co.il - Ч¤Ч•ЧњЧ™ЧЧ™ - ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 16.5.2025</div>
+      </td>
+      <td class="title-cell"><span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧЧњЧ™ Ч’Ч•ЧЧњЧ™Ч‘</span> ЧЄЧ—ЧЄ ЧћЧЄЧ§Ч¤Ч”: "Ч‘ЧћЧўЧ©Ч™Чќ Ч”Ч™Чђ Ч©ЧћЧђЧњ ЧЁЧ“Ч™Ч§ЧњЧ™"</td>
+      <td class="description-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/954996]
+<span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч™Ч•ЧњЧ™Ч” ЧћЧњЧ™Ч Ч•Ч‘ЧЎЧ§Ч™</span> Ч‘ЧЧ•Ч•Ч™ЧЧЁ: "<span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧЧњЧ™ Ч’Ч•ЧЧњЧ™Ч‘</span> Ч—Ч‘ЧЁЧЄ Ч›Ч ЧЎЧЄ Ч›Ч‘ЧЁ Ч©Ч ЧЄЧ™Ч™Чќ Ч¤ЧњЧ•ЧЎ Ч•Ч›ЧћЧ” Ч—Ч•Ч§Ч™Чќ Ч™ЧћЧ Ч™Ч™Чќ ЧђЧЄЧќ Ч—Ч•Ч©Ч‘Ч™Чќ Ч©Ч”Ч™Чђ Ч”ЧўЧ‘Ч™ЧЁЧ”? ЧђЧ¤ЧЎ. Ч”Ч™Чђ ЧЄЧ’Ч™Ч“ ЧњЧ›Чќ Ч©Ч”Ч™Чђ ЧњЧђ ЧћЧђЧћЧ™Ч Ч” Ч‘Ч—Ч§Ч™Ч§Ч” ЧђЧ‘Чњ Ч’Чќ Ч©ЧЧ•Ч™Ч•ЧЄ ЧђЧ—ЧЁЧЄ ЧњЧћЧ” Ч”Ч™Чђ Ч”Ч’Ч™Ч©Ч” 32 Ч”Ч¦ЧўЧ•ЧЄ Ч—Ч•Ч§"
+</td>
+      <td class="content-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/954996]
+<span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч™Ч•ЧњЧ™Ч” ЧћЧњЧ™Ч Ч•Ч‘ЧЎЧ§Ч™</span> Ч‘ЧЧ•Ч•Ч™ЧЧЁ: "<span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧЧњЧ™ Ч’Ч•ЧЧњЧ™Ч‘</span> Ч—Ч‘ЧЁЧЄ Ч›Ч ЧЎЧЄ Ч›Ч‘ЧЁ Ч©Ч ЧЄЧ™Ч™Чќ Ч¤ЧњЧ•ЧЎ Ч•Ч›ЧћЧ” Ч—Ч•Ч§Ч™Чќ Ч™ЧћЧ Ч™Ч™Чќ ЧђЧЄЧќ Ч—Ч•Ч©Ч‘Ч™Чќ Ч©Ч”Ч™Чђ Ч”ЧўЧ‘Ч™ЧЁЧ”? ЧђЧ¤ЧЎ. Ч”Ч™Чђ ЧЄЧ’Ч™Ч“ ЧњЧ›Чќ Ч©Ч”Ч™Чђ ЧњЧђ ЧћЧђЧћЧ™Ч Ч” Ч‘Ч—Ч§Ч™Ч§Ч” ЧђЧ‘Чњ Ч’Чќ Ч©ЧЧ•Ч™Ч•ЧЄ ЧђЧ—ЧЁЧЄ ЧњЧћЧ” Ч”Ч™Чђ Ч”Ч’Ч™Ч©Ч” 32 Ч”Ч¦ЧўЧ•ЧЄ Ч—Ч•Ч§"
+</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">2</td>
+      <td class="article-id-cell">7bdb027b</td>
+      <td class="politician-cell">
+        <div class="politician-tag">Ч‘Ч Ч™ЧћЧ™Чџ Ч ЧЄЧ Ч™Ч”Ч•</div><div class="politician-tag">Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Maariv.co.il - Ч¤Ч•ЧњЧ™ЧЧ™ - ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 16.5.2025</div>
+      </td>
+      <td class="title-cell">ЧњЧђ ЧЎЧ•Ч¤ЧЁ ЧђЧ•ЧЄЧ Ч•: ЧЧЁЧђЧћЧ¤ Ч”Ч•Ч¤Чљ ЧђЧЄ ЧЎЧўЧ•Ч“Ч™Ч” ЧњЧћЧўЧ¦ЧћЧ” Ч¦Ч‘ЧђЧ™ЧЄ | ЧђЧњЧ•Чџ Ч‘Чџ Ч“Ч•Ч“</td>
+      <td class="description-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/981186]
+<span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤</span> Ч”Ч‘Ч”Ч™ЧЁ Ч©Ч™Ч© ЧњЧ• Ч‘Ч Ч™ Ч‘ЧЁЧ™ЧЄ Ч™Ч§ЧЁЧ™Чќ ЧћЧђЧ™ЧЄЧ Ч•, ЧђЧљ ЧўЧ“Ч™Ч™Чџ Ч‘ЧђЧ¤Ч©ЧЁЧ•ЧЄЧ• ЧњЧ”Ч¦Ч™Чњ ЧђЧЄ Ч™Ч©ЧЁЧђЧњ ЧћЧўЧ¦ЧћЧ” Ч‘Ч›Чљ Ч©Ч™Ч›ЧЁЧ™Ч— ЧђЧЄ Ч ЧЄЧ Ч™Ч”Ч• ЧњЧЎЧ™Ч™Чќ ЧђЧЄ Ч”ЧћЧњЧ—ЧћЧ” Ч•ЧњЧ—ЧЄЧ•ЧЁ ЧњЧ”ЧЎЧ“ЧЁ
+</td>
+      <td class="content-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/981186]
+<span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤</span> Ч”Ч‘Ч”Ч™ЧЁ Ч©Ч™Ч© ЧњЧ• Ч‘Ч Ч™ Ч‘ЧЁЧ™ЧЄ Ч™Ч§ЧЁЧ™Чќ ЧћЧђЧ™ЧЄЧ Ч•, ЧђЧљ ЧўЧ“Ч™Ч™Чџ Ч‘ЧђЧ¤Ч©ЧЁЧ•ЧЄЧ• ЧњЧ”Ч¦Ч™Чњ ЧђЧЄ Ч™Ч©ЧЁЧђЧњ ЧћЧўЧ¦ЧћЧ” Ч‘Ч›Чљ Ч©Ч™Ч›ЧЁЧ™Ч— ЧђЧЄ Ч ЧЄЧ Ч™Ч”Ч• ЧњЧЎЧ™Ч™Чќ ЧђЧЄ Ч”ЧћЧњЧ—ЧћЧ” Ч•ЧњЧ—ЧЄЧ•ЧЁ ЧњЧ”ЧЎЧ“ЧЁ
+</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">3</td>
+      <td class="article-id-cell">661bae6d</td>
+      <td class="politician-cell">
+        <div class="politician-tag">Ч‘Ч Ч™ЧћЧ™Чџ Ч ЧЄЧ Ч™Ч”Ч•</div><div class="politician-tag">Ч™ЧђЧ™ЧЁ ЧњЧ¤Ч™Ч“</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Maariv.co.il - Ч¤Ч•ЧњЧ™ЧЧ™ - ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 15.5.2025</div>
+      </td>
+      <td class="title-cell">"Ч”Ч—ЧњЧЧЄ Ч§Ч‘Ч™Ч Ч ЧђЧ—ЧЄ": Ч¤Ч’Ч™Ч©ЧЄ <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧњЧ¤Ч™Ч“ Ч•Ч ЧЄЧ Ч™Ч”Ч•</span> Ч—Ч•Ч©Ч¤ЧЄ ЧђЧЄ Ч”Ч§ЧњЧ¤Ч™Чќ Ч‘ЧћЧ©Чђ Ч•ЧћЧЄЧџ ЧњЧ©Ч—ЧЁЧ•ЧЁ Ч”Ч—ЧЧ•Ч¤Ч™Чќ</td>
+      <td class="description-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/479504]
+ЧњЧђЧ—ЧЁ Ч—Ч•Ч“Ч©Ч™Ч™Чќ ЧњЧњЧђ Ч”Ч™Ч“Ч‘ЧЁЧ•ЧЄ, <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч™ЧђЧ™ЧЁ ЧњЧ¤Ч™Ч“</span> Ч•Ч‘Ч Ч™ЧћЧ™Чџ Ч ЧЄЧ Ч™Ч”Ч• Ч Ч¤Ч’Ч©Ч• ЧњЧўЧ“Ч›Ч•Чџ Ч‘ЧЧ—Ч•Ч Ч™ ЧўЧњ ЧЁЧ§Чў Ч”ЧћЧ©Чђ Ч•ЧћЧЄЧџ ЧњЧ”Ч©Ч‘ЧЄ Ч”Ч—ЧЧ•Ч¤Ч™Чќ, Ч©Ч Ч•ЧЄЧЁ ЧњЧњЧђ Ч¤ЧЁЧ™Ч¦ЧЄ Ч“ЧЁЧљ. Ч‘ЧЄЧ•Чќ Ч”Ч¤Ч’Ч™Ч©Ч”, ЧњЧ¤Ч™Ч“ Ч¤ЧЁЧЎЧќ ЧЎЧЁЧЧ•Чџ ЧћЧ›Ч™Ч›ЧЁ Ч”Ч—ЧЧ•Ч¤Ч™Чќ Ч‘Ч• Ч”Ч•Чђ ЧћЧ¦Ч”Ч™ЧЁ: "ЧђЧ¤Ч©ЧЁ ЧњЧўЧ©Ч•ЧЄ ЧўЧЎЧ§Ч”"
+</td>
+      <td class="content-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/479504]
+ЧњЧђЧ—ЧЁ Ч—Ч•Ч“Ч©Ч™Ч™Чќ ЧњЧњЧђ Ч”Ч™Ч“Ч‘ЧЁЧ•ЧЄ, <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч™ЧђЧ™ЧЁ ЧњЧ¤Ч™Ч“</span> Ч•Ч‘Ч Ч™ЧћЧ™Чџ Ч ЧЄЧ Ч™Ч”Ч• Ч Ч¤Ч’Ч©Ч• ЧњЧўЧ“Ч›Ч•Чџ Ч‘ЧЧ—Ч•Ч Ч™ ЧўЧњ ЧЁЧ§Чў Ч”ЧћЧ©Чђ Ч•ЧћЧЄЧџ ЧњЧ”Ч©Ч‘ЧЄ Ч”Ч—ЧЧ•Ч¤Ч™Чќ, Ч©Ч Ч•ЧЄЧЁ ЧњЧњЧђ Ч¤ЧЁЧ™Ч¦ЧЄ Ч“ЧЁЧљ. Ч‘ЧЄЧ•Чќ Ч”Ч¤Ч’Ч™Ч©Ч”, ЧњЧ¤Ч™Ч“ Ч¤ЧЁЧЎЧќ ЧЎЧЁЧЧ•Чџ ЧћЧ›Ч™Ч›ЧЁ Ч”Ч—ЧЧ•Ч¤Ч™Чќ Ч‘Ч• Ч”Ч•Чђ ЧћЧ¦Ч”Ч™ЧЁ: "ЧђЧ¤Ч©ЧЁ ЧњЧўЧ©Ч•ЧЄ ЧўЧЎЧ§Ч”"
+</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">4</td>
+      <td class="article-id-cell">9a248e3</td>
+      <td class="politician-cell">
+        <div class="politician-tag">Ч‘Ч Ч™ЧћЧ™Чџ Ч ЧЄЧ Ч™Ч”Ч•</div><div class="politician-tag">Ч’Ч“Ч™ ЧђЧ™Ч–Ч Ч§Ч•Ч</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Maariv.co.il - Ч¤Ч•ЧњЧ™ЧЧ™ - ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 15.5.2025</div>
+      </td>
+      <td class="title-cell">ЧђЧ™Ч–Ч Ч§Ч•Ч ЧЄЧ•Ч§ЧЈ: "Ч”Ч”ЧЄЧўЧ§Ч©Ч•ЧЄ Ч©Чњ Ч ЧЄЧ Ч™Ч”Ч• ЧўЧњ ЧўЧЎЧ§Ч” Ч—ЧњЧ§Ч™ЧЄ Ч”Ч™Чђ Ч©Ч’Ч™ЧђЧ” Ч§Ч©Ч”"</td>
+      <td class="description-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/941540]
+Ч—Ч‘ЧЁ Ч”Ч›Ч ЧЎЧЄ <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч’Ч“Ч™ ЧђЧ™Ч–Ч Ч§Ч•Ч</span> ЧћЧЄЧ— Ч‘Ч™Ч§Ч•ЧЁЧЄ Ч—ЧЁЧ™Ч¤Ч” ЧўЧњ Ч”ЧђЧ•Ч¤Чџ Ч©Ч‘Ч• ЧћЧЄЧ Ч”ЧњЧЄ Ч”ЧћЧћЧ©ЧњЧ” ЧћЧ•Чњ ЧўЧ–Ч” Ч‘Ч©Ч™Ч—Ч” ЧўЧќ Ч Ч™ЧЎЧ™Чќ ЧћЧ©ЧўЧњ Ч•ЧњЧ™ЧђЧЄ ЧЁЧ•Чџ. "Ч”Ч”ЧўЧћЧ“Ч” Ч©Чњ ЧўЧ¦Ч™ЧЁЧЄ ЧћЧњЧ—ЧћЧ” ЧћЧ•Чњ Ч”Ч©Ч‘ЧЄ Ч—ЧЧ•Ч¤Ч™Чќ Ч”Ч™Чђ ЧћЧ‘Ч¦Чў ЧЄЧ•Ч“ЧўЧ” ЧћЧ•Чњ ЧђЧ–ЧЁЧ—Ч™ Ч”ЧћЧ“Ч™Ч Ч”"
+</td>
+      <td class="content-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/941540]
+Ч—Ч‘ЧЁ Ч”Ч›Ч ЧЎЧЄ <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч’Ч“Ч™ ЧђЧ™Ч–Ч Ч§Ч•Ч</span> ЧћЧЄЧ— Ч‘Ч™Ч§Ч•ЧЁЧЄ Ч—ЧЁЧ™Ч¤Ч” ЧўЧњ Ч”ЧђЧ•Ч¤Чџ Ч©Ч‘Ч• ЧћЧЄЧ Ч”ЧњЧЄ Ч”ЧћЧћЧ©ЧњЧ” ЧћЧ•Чњ ЧўЧ–Ч” Ч‘Ч©Ч™Ч—Ч” ЧўЧќ Ч Ч™ЧЎЧ™Чќ ЧћЧ©ЧўЧњ Ч•ЧњЧ™ЧђЧЄ ЧЁЧ•Чџ. "Ч”Ч”ЧўЧћЧ“Ч” Ч©Чњ ЧўЧ¦Ч™ЧЁЧЄ ЧћЧњЧ—ЧћЧ” ЧћЧ•Чњ Ч”Ч©Ч‘ЧЄ Ч—ЧЧ•Ч¤Ч™Чќ Ч”Ч™Чђ ЧћЧ‘Ч¦Чў ЧЄЧ•Ч“ЧўЧ” ЧћЧ•Чњ ЧђЧ–ЧЁЧ—Ч™ Ч”ЧћЧ“Ч™Ч Ч”"
+</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">5</td>
+      <td class="article-id-cell">65a06f8a</td>
+      <td class="politician-cell">
+        <div class="politician-tag">Ч‘Ч Ч™ЧћЧ™Чџ Ч ЧЄЧ Ч™Ч”Ч•</div><div class="politician-tag">Ч™Ч©ЧЁЧђЧњ Ч›"ЧҐ</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Ч›Чњ Ч”Ч—Ч“Ч©Ч•ЧЄ Ч”ЧўЧ“Ч›Ч Ч™Ч•ЧЄ Ч‘ЧЄЧ—Ч•ЧћЧ™ Ч¦Ч‘Чђ Ч•Ч©Ч™ЧЁЧ•ЧЄЧ™ Ч”Ч‘Ч™ЧЧ—Ч•Чџ</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 16.5.2025</div>
+      </td>
+      <td class="title-cell">Ч—Ч™Чњ Ч”ЧђЧ•Ч•Ч™ЧЁ Ч”Ч™Ч©ЧЁЧђЧњЧ™ ЧЄЧ§ЧЈ Ч‘Ч›ЧћЧ” ЧћЧ•Ч§Ч“Ч™Чќ Ч‘ЧЄЧ™ЧћЧџ</td>
+      <td class="description-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/8/9/7/3897792-46.jpg]https://news.walla.co.il/item/3750258
+Ч©ЧўЧ•ЧЄ ЧђЧ—ЧЁЧ™ Ч©ЧЧЁЧђЧћЧ¤ ЧўЧ–Ч‘ ЧђЧЄ Ч”ЧђЧ–Ч•ЧЁ, Ч•Ч™Ч•ЧћЧ™Ч™Чќ ЧђЧ—ЧЁЧ™ Ч”ЧђЧ–Ч”ЧЁЧ•ЧЄ Ч©Чњ Ч“Ч•Ч‘ЧЁ Ч¦Ч”"Чњ Ч‘ЧўЧЁЧ‘Ч™ЧЄ: Ч™Ч•ЧЄЧЁ Чћ-10 ЧЄЧ§Ч™Ч¤Ч•ЧЄ Ч‘Ч•Ч¦ЧўЧ• Ч Ч’Ч“ ЧћЧЧЁЧ•ЧЄ Ч‘Ч©Ч Ч™ Ч ЧћЧњЧ™Чќ. ЧЁЧђЧ© Ч”ЧћЧћЧ©ЧњЧ” Ч¦Ч¤Ч” Ч‘ЧЄЧ§Ч™Ч¤Ч” ЧћЧ”Ч‘Ч•ЧЁ Ч‘Ч§ЧЁЧ™Ч” Ч‘Ч™Ч—Ч“ ЧўЧќ Ч©ЧЁ Ч”Ч‘Ч™ЧЧ—Ч•Чџ Ч•Ч”ЧЁЧћЧЧ›"Чњ. Ч›"ЧҐ ЧћЧђЧ™Ч™Чќ ЧђЧ—ЧЁЧ™ Ч”ЧЄЧ§Ч™Ч¤Ч”: Ч Ч—ЧЎЧњ ЧђЧЄ ЧћЧ Ч”Ч™Ч’ Ч”Ч—Ч•ЧЄ'Ч™Чќ Ч›ЧћЧ• Ч©ЧўЧ©Ч™Ч Ч• ЧњЧЎЧ™Ч Ч•Ч•ЧђЧЁЧ™Чќ</td>
+      <td class="content-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/8/9/7/3897792-46.jpg]https://news.walla.co.il/item/3750258
+Ч©ЧўЧ•ЧЄ ЧђЧ—ЧЁЧ™ Ч©ЧЧЁЧђЧћЧ¤ ЧўЧ–Ч‘ ЧђЧЄ Ч”ЧђЧ–Ч•ЧЁ, Ч•Ч™Ч•ЧћЧ™Ч™Чќ ЧђЧ—ЧЁЧ™ Ч”ЧђЧ–Ч”ЧЁЧ•ЧЄ Ч©Чњ Ч“Ч•Ч‘ЧЁ Ч¦Ч”"Чњ Ч‘ЧўЧЁЧ‘Ч™ЧЄ: Ч™Ч•ЧЄЧЁ Чћ-10 ЧЄЧ§Ч™Ч¤Ч•ЧЄ Ч‘Ч•Ч¦ЧўЧ• Ч Ч’Ч“ ЧћЧЧЁЧ•ЧЄ Ч‘Ч©Ч Ч™ Ч ЧћЧњЧ™Чќ. ЧЁЧђЧ© Ч”ЧћЧћЧ©ЧњЧ” Ч¦Ч¤Ч” Ч‘ЧЄЧ§Ч™Ч¤Ч” ЧћЧ”Ч‘Ч•ЧЁ Ч‘Ч§ЧЁЧ™Ч” Ч‘Ч™Ч—Ч“ ЧўЧќ Ч©ЧЁ Ч”Ч‘Ч™ЧЧ—Ч•Чџ Ч•Ч”ЧЁЧћЧЧ›"Чњ. Ч›"ЧҐ ЧћЧђЧ™Ч™Чќ ЧђЧ—ЧЁЧ™ Ч”ЧЄЧ§Ч™Ч¤Ч”: Ч Ч—ЧЎЧњ ЧђЧЄ ЧћЧ Ч”Ч™Ч’ Ч”Ч—Ч•ЧЄ'Ч™Чќ Ч›ЧћЧ• Ч©ЧўЧ©Ч™Ч Ч• ЧњЧЎЧ™Ч Ч•Ч•ЧђЧЁЧ™Чќ</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">6</td>
+      <td class="article-id-cell">1d28bcd0</td>
+      <td class="politician-cell">
+        <div class="politician-tag">Ч‘Ч Ч™ЧћЧ™Чџ Ч ЧЄЧ Ч™Ч”Ч•</div><div class="politician-tag">ЧђЧЁЧ™Ч” Ч“ЧЁЧўЧ™</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: ynet - Ч—Ч“Ч©Ч•ЧЄ</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 16.5.2025</div>
+      </td>
+      <td class="title-cell">Ч©Ч™Ч‘Ч•Ч© Ч”ЧњЧ™Ч›Ч™ Ч•ЧўЧ“ЧЄ Ч—Ч§Ч™ЧЁЧ”</td>
+      <td class="description-cell">| [https://ynet-pic1.yit.co.il/picserver6/crop_images/2025/05/15/SJxB7w7Wgx/SJxB7w7Wgx_0_0_1275_718_0_medium.jpg]https://www.ynet.co.il/news/article/yokra14371492
+Ч‘Ч›Ч™ЧЁЧ™Чќ Ч‘Ч™Ч© ЧўЧЄЧ™Ч“ Ч”ЧЧ™Ч—Ч• Ч‘ЧћЧ‘Ч§ЧЁ Ч”ЧћЧ“Ч™Ч Ч”: ЧђЧЄЧ” Ч—Ч•Ч§ЧЁ ЧђЧЄ 7 Ч‘ЧђЧ•Ч§ЧЧ•Ч‘ЧЁ Ч›Ч“Ч™ ЧњЧЎЧ›Чњ Ч•ЧўЧ“ЧЄ Ч—Ч§Ч™ЧЁЧ” ЧћЧћЧњЧ›ЧЄЧ™ЧЄ, Ч‘Ч©Ч™ЧЁЧ•ЧЄ Ч ЧЄЧ Ч™Ч”Ч•. ЧђЧ Ч’ЧњЧћЧџ ЧћЧ’Ч™Ч‘: "Ч¦Ч‘Ч™ЧўЧ•ЧЄ, Ч Ч™ЧЎЧ™Ч•Чџ ЧњЧ”ЧњЧљ ЧђЧ™ЧћЧ™Чќ". Ч’Ч ЧҐ Ч©Ч™ЧЄЧЈ Ч¤ЧўЧ•ЧњЧ” ЧўЧќ Ч¤Ч•ЧЁЧ•Чќ Ч§Ч”ЧњЧЄ Ч‘Ч’Ч™Ч‘Ч•Ч© Ч—Ч•Ч§ ЧўЧ•Ч§ЧЈ Ч¤ЧЁЧ™Ч™ЧћЧЁЧ™Ч–. Ч•ЧўЧ“ЧЄ Ч”ЧђЧЄЧ™Ч§Ч” Ч”ЧЄЧ‘Ч§Ч©Ч” ЧњЧ©ЧњЧ•Чњ ЧћЧђЧЁЧ™Ч” Ч“ЧЁЧўЧ™ Ч©Ч›ЧЁ ЧњЧ©Ч Ч”</td>
+      <td class="content-cell">| [https://ynet-pic1.yit.co.il/picserver6/crop_images/2025/05/15/SJxB7w7Wgx/SJxB7w7Wgx_0_0_1275_718_0_medium.jpg]https://www.ynet.co.il/news/article/yokra14371492
+Ч‘Ч›Ч™ЧЁЧ™Чќ Ч‘Ч™Ч© ЧўЧЄЧ™Ч“ Ч”ЧЧ™Ч—Ч• Ч‘ЧћЧ‘Ч§ЧЁ Ч”ЧћЧ“Ч™Ч Ч”: ЧђЧЄЧ” Ч—Ч•Ч§ЧЁ ЧђЧЄ 7 Ч‘ЧђЧ•Ч§ЧЧ•Ч‘ЧЁ Ч›Ч“Ч™ ЧњЧЎЧ›Чњ Ч•ЧўЧ“ЧЄ Ч—Ч§Ч™ЧЁЧ” ЧћЧћЧњЧ›ЧЄЧ™ЧЄ, Ч‘Ч©Ч™ЧЁЧ•ЧЄ Ч ЧЄЧ Ч™Ч”Ч•. ЧђЧ Ч’ЧњЧћЧџ ЧћЧ’Ч™Ч‘: "Ч¦Ч‘Ч™ЧўЧ•ЧЄ, Ч Ч™ЧЎЧ™Ч•Чџ ЧњЧ”ЧњЧљ ЧђЧ™ЧћЧ™Чќ". Ч’Ч ЧҐ Ч©Ч™ЧЄЧЈ Ч¤ЧўЧ•ЧњЧ” ЧўЧќ Ч¤Ч•ЧЁЧ•Чќ Ч§Ч”ЧњЧЄ Ч‘Ч’Ч™Ч‘Ч•Ч© Ч—Ч•Ч§ ЧўЧ•Ч§ЧЈ Ч¤ЧЁЧ™Ч™ЧћЧЁЧ™Ч–. Ч•ЧўЧ“ЧЄ Ч”ЧђЧЄЧ™Ч§Ч” Ч”ЧЄЧ‘Ч§Ч©Ч” ЧњЧ©ЧњЧ•Чњ ЧћЧђЧЁЧ™Ч” Ч“ЧЁЧўЧ™ Ч©Ч›ЧЁ ЧњЧ©Ч Ч”</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">7</td>
+      <td class="article-id-cell">2ad57f4</td>
+      <td class="politician-cell">
+        <div class="politician-tag">Ч¤Ч Ч™Ч Ч” ЧЄЧћЧ Ч•</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Maariv.co.il - Ч¤Ч•ЧњЧ™ЧЧ™ - ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 15.5.2025</div>
+      </td>
+      <td class="title-cell">Ч“ЧЁЧ™Ч©Ч” ЧћЧ©ЧЁЧ™ Ч”ЧћЧћЧ©ЧњЧ”: Ч‘ЧЧњЧ• ЧђЧЄ Ч”Ч›Ч‘Ч•Ч“ Ч©Ч ЧЄЧЄЧќ ЧњЧўЧ‘ЧЁЧ™Ч™Чџ ЧђЧњЧ™ЧўЧ–ЧЁ Ч‘ЧЁЧњЧ Ч“</td>
+      <td class="description-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/561482]
+ЧЁЧ’Чў ЧњЧ¤Ч Ч™ Ч”Ч”Ч“ЧњЧ§Ч” Ч”ЧћЧЎЧ•ЧЁЧЄЧ™ЧЄ Ч‘Ч”ЧЁ ЧћЧ™ЧЁЧ•Чџ ЧњЧЁЧ’Чњ Чњ"Ч’ Ч‘ЧўЧ•ЧћЧЁ, Ч—"Ч› <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч¤Ч Ч™Ч Ч” ЧЄЧћЧ Ч•</span> Ч©ЧЧ” Ч¤Ч ЧЄЧ” Ч‘Ч“Ч—Ч™Ч¤Ч•ЧЄ ЧњЧћЧЎЧ¤ЧЁ Ч©ЧЁЧ™Чќ Ч‘Ч“ЧЁЧ™Ч©Ч” ЧњЧ‘ЧЧњ Ч‘ЧђЧ•Ч¤Чџ ЧћЧ™Ч™Ч“Ч™ ЧђЧЄ Ч”Ч”Ч“ЧњЧ§Ч” Ч”Ч—Ч’Ч™Ч’Ч™ЧЄ ЧўЧњ Ч™Ч“Ч™ ЧђЧњЧ™ЧўЧ–ЧЁ Ч‘ЧЁЧњЧ Ч“ - Ч©Ч”Ч•ЧЁЧ©Чў Ч‘ЧўЧ‘Ч™ЧЁЧ•ЧЄ ЧћЧ™Чџ Ч—ЧћЧ•ЧЁЧ•ЧЄ Ч•ЧћЧЁЧћЧ”
+</td>
+      <td class="content-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/561482]
+ЧЁЧ’Чў ЧњЧ¤Ч Ч™ Ч”Ч”Ч“ЧњЧ§Ч” Ч”ЧћЧЎЧ•ЧЁЧЄЧ™ЧЄ Ч‘Ч”ЧЁ ЧћЧ™ЧЁЧ•Чџ ЧњЧЁЧ’Чњ Чњ"Ч’ Ч‘ЧўЧ•ЧћЧЁ, Ч—"Ч› <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч¤Ч Ч™Ч Ч” ЧЄЧћЧ Ч•</span> Ч©ЧЧ” Ч¤Ч ЧЄЧ” Ч‘Ч“Ч—Ч™Ч¤Ч•ЧЄ ЧњЧћЧЎЧ¤ЧЁ Ч©ЧЁЧ™Чќ Ч‘Ч“ЧЁЧ™Ч©Ч” ЧњЧ‘ЧЧњ Ч‘ЧђЧ•Ч¤Чџ ЧћЧ™Ч™Ч“Ч™ ЧђЧЄ Ч”Ч”Ч“ЧњЧ§Ч” Ч”Ч—Ч’Ч™Ч’Ч™ЧЄ ЧўЧњ Ч™Ч“Ч™ ЧђЧњЧ™ЧўЧ–ЧЁ Ч‘ЧЁЧњЧ Ч“ - Ч©Ч”Ч•ЧЁЧ©Чў Ч‘ЧўЧ‘Ч™ЧЁЧ•ЧЄ ЧћЧ™Чџ Ч—ЧћЧ•ЧЁЧ•ЧЄ Ч•ЧћЧЁЧћЧ”
+</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">8</td>
+      <td class="article-id-cell">1fd18d9</td>
+      <td class="politician-cell">
+        <div class="politician-tag">ЧђЧ™ЧЄЧћЧЁ Ч‘Чџ Ч’Ч‘Ч™ЧЁ</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Maariv.co.il - Ч¤Ч•ЧњЧ™ЧЧ™ - ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 15.5.2025</div>
+      </td>
+      <td class="title-cell">Ч›ЧђЧ•ЧЎ Ч‘Ч‘Ч™ЧЁЧЄ Ч”Ч¤Ч©Чў Ч”Ч—ЧЁЧ“Ч™ЧЄ: ЧћЧ©Ч¤Ч—ЧЄ Ч‘Чџ Ч’Ч‘Ч™ЧЁ Ч”Ч™Ч™ЧЄЧ” ЧћЧўЧ•ЧЁЧ‘ЧЄ Ч‘ЧЄЧ§ЧЁЧ™ЧЄ ЧђЧњЧ™ЧћЧ”</td>
+      <td class="description-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/981431]
+Ч”Ч©ЧЁ <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧђЧ™ЧЄЧћЧЁ Ч‘Чџ Ч’Ч‘Ч™ЧЁ</span> Ч•ЧЁЧўЧ™Ч™ЧЄЧ• ЧђЧ™ЧњЧ” Ч”Ч•ЧЄЧ§Ч¤Ч• Ч”Ч™Ч•Чќ Ч‘Ч™Ч“Ч™ ЧћЧђЧ•ЧЄ Ч ЧЧ•ЧЁЧ™ Ч§ЧЁЧЄЧђ Ч‘Ч‘Ч™ЧЄ Ч©ЧћЧ©. Ч”Ч©ЧЁ Ч”Ч©Ч™Ч‘ ЧњЧ¤Ч•ЧЁЧўЧ™Чќ: "Ч¤Ч” Ч–Ч” ЧћЧ“Ч™Ч ЧЄ Ч™Ч©ЧЁЧђЧњ, Ч”ЧћЧ©ЧЧЁЧ” ЧЄЧђЧ›Ч•ЧЈ ЧђЧЄ Ч”Ч—Ч•Ч§ Ч’Чќ Ч›ЧђЧџ"
+</td>
+      <td class="content-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/981431]
+Ч”Ч©ЧЁ <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧђЧ™ЧЄЧћЧЁ Ч‘Чџ Ч’Ч‘Ч™ЧЁ</span> Ч•ЧЁЧўЧ™Ч™ЧЄЧ• ЧђЧ™ЧњЧ” Ч”Ч•ЧЄЧ§Ч¤Ч• Ч”Ч™Ч•Чќ Ч‘Ч™Ч“Ч™ ЧћЧђЧ•ЧЄ Ч ЧЧ•ЧЁЧ™ Ч§ЧЁЧЄЧђ Ч‘Ч‘Ч™ЧЄ Ч©ЧћЧ©. Ч”Ч©ЧЁ Ч”Ч©Ч™Ч‘ ЧњЧ¤Ч•ЧЁЧўЧ™Чќ: "Ч¤Ч” Ч–Ч” ЧћЧ“Ч™Ч ЧЄ Ч™Ч©ЧЁЧђЧњ, Ч”ЧћЧ©ЧЧЁЧ” ЧЄЧђЧ›Ч•ЧЈ ЧђЧЄ Ч”Ч—Ч•Ч§ Ч’Чќ Ч›ЧђЧџ"
+</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">9</td>
+      <td class="article-id-cell">3209775c</td>
+      <td class="politician-cell">
+        <div class="politician-tag">ЧђЧњЧ™ Ч›Ч”Чџ</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Ч›Чњ Ч”Ч—Ч“Ч©Ч•ЧЄ Ч‘ЧЄЧ—Ч•Чќ Ч”Ч¤Ч•ЧњЧ™ЧЧ™ ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 15.5.2025</div>
+      </td>
+      <td class="title-cell">ЧђЧЁЧ”"Ч‘ Ч”ЧўЧ‘Ч™ЧЁЧ” ЧњЧђЧ™ЧЁЧђЧџ Ч”Ч¦ЧўЧ” Ч›ЧЄЧ•Ч‘Ч” ЧњЧ”ЧЎЧ›Чќ Ч’ЧЁЧўЧ™Чџ Ч—Ч“Ч©</td>
+      <td class="description-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/8/9/6/3896881-46.jpg]https://news.walla.co.il/item/3749988
+Ч”Ч©ЧњЧ™Ч— Ч•Ч•Ч™ЧЧ§Ч•ЧЈ ЧћЧЎЧЁ ЧђЧЄ Ч”Ч”Ч¦ЧўЧ” ЧњЧ©ЧЁ Ч”Ч—Ч•ЧҐ Ч”ЧђЧ™ЧЁЧђЧ Ч™ Ч‘Ч™Ч•Чќ ЧЁЧђЧ©Ч•Чџ Ч‘ЧћЧ”ЧњЧљ Ч”ЧЎЧ‘Ч‘ Ч”ЧЁЧ‘Ч™ЧўЧ™ Ч©Чњ Ч©Ч™Ч—Ч•ЧЄ Ч”Ч’ЧЁЧўЧ™Чџ Ч‘ЧўЧ•ЧћЧђЧџ. Ч•Ч•Ч™ЧЧ§Ч•ЧЈ Ч”Ч’Ч“Ч™ЧЁ ЧђЧЄ Ч”Ч”Ч¦ЧўЧ”, Ч©ЧћЧЄЧђЧЁЧЄ Ч›Ч™Ч¦Ч“ Ч¦ЧЁЧ™Ч›Ч” ЧњЧ”Ч™ЧЁЧђЧ•ЧЄ ЧЄЧ›Ч Ч™ЧЄ Ч’ЧЁЧўЧ™Чџ ЧђЧ–ЧЁЧ—Ч™ЧЄ Ч‘ЧђЧ™ЧЁЧђЧџ, Ч›"ЧђЧњЧ’Ч ЧЧ™ЧЄ Ч•Ч’Ч“Ч•ЧњЧ” ЧћЧђЧ•Ч“". Ч”ЧђЧ™ЧЁЧђЧ Ч™ЧЄ Ч‘Ч•Ч—Ч Ч™Чќ ЧђЧЄ Ч”Ч”Ч¦ЧўЧ” Ч•ЧђЧћЧ•ЧЁЧ™Чќ ЧњЧ”Ч’Ч™Ч‘ ЧўЧњЧ™Ч” Ч‘Ч™ЧћЧ™Чќ Ч”Ч§ЧЁЧ•Ч‘Ч™Чќ</td>
+      <td class="content-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/8/9/6/3896881-46.jpg]https://news.walla.co.il/item/3749988
+Ч”Ч©ЧњЧ™Ч— Ч•Ч•Ч™ЧЧ§Ч•ЧЈ ЧћЧЎЧЁ ЧђЧЄ Ч”Ч”Ч¦ЧўЧ” ЧњЧ©ЧЁ Ч”Ч—Ч•ЧҐ Ч”ЧђЧ™ЧЁЧђЧ Ч™ Ч‘Ч™Ч•Чќ ЧЁЧђЧ©Ч•Чџ Ч‘ЧћЧ”ЧњЧљ Ч”ЧЎЧ‘Ч‘ Ч”ЧЁЧ‘Ч™ЧўЧ™ Ч©Чњ Ч©Ч™Ч—Ч•ЧЄ Ч”Ч’ЧЁЧўЧ™Чџ Ч‘ЧўЧ•ЧћЧђЧџ. Ч•Ч•Ч™ЧЧ§Ч•ЧЈ Ч”Ч’Ч“Ч™ЧЁ ЧђЧЄ Ч”Ч”Ч¦ЧўЧ”, Ч©ЧћЧЄЧђЧЁЧЄ Ч›Ч™Ч¦Ч“ Ч¦ЧЁЧ™Ч›Ч” ЧњЧ”Ч™ЧЁЧђЧ•ЧЄ ЧЄЧ›Ч Ч™ЧЄ Ч’ЧЁЧўЧ™Чџ ЧђЧ–ЧЁЧ—Ч™ЧЄ Ч‘ЧђЧ™ЧЁЧђЧџ, Ч›"ЧђЧњЧ’Ч ЧЧ™ЧЄ Ч•Ч’Ч“Ч•ЧњЧ” ЧћЧђЧ•Ч“". Ч”ЧђЧ™ЧЁЧђЧ Ч™ЧЄ Ч‘Ч•Ч—Ч Ч™Чќ ЧђЧЄ Ч”Ч”Ч¦ЧўЧ” Ч•ЧђЧћЧ•ЧЁЧ™Чќ ЧњЧ”Ч’Ч™Ч‘ ЧўЧњЧ™Ч” Ч‘Ч™ЧћЧ™Чќ Ч”Ч§ЧЁЧ•Ч‘Ч™Чќ</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">10</td>
+      <td class="article-id-cell">1b0ec690</td>
+      <td class="politician-cell">
+        <div class="politician-tag">ЧђЧ™ЧЄЧћЧЁ Ч‘Чџ Ч’Ч‘Ч™ЧЁ</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Ч›Чњ Ч”Ч—Ч“Ч©Ч•ЧЄ Ч‘ЧЄЧ—Ч•Чќ Ч”Ч¤Ч•ЧњЧ™ЧЧ™ ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 15.5.2025</div>
+      </td>
+      <td class="title-cell">Ч‘Чџ Ч’Ч‘Ч™ЧЁ Ч”Ч•ЧЄЧ§ЧЈ ЧўЧњ Ч™Ч“Ч™ Ч ЧЧ•ЧЁЧ™ Ч§ЧЁЧЄЧђ, ЧђЧ™ЧњЧ” Ч‘Чџ Ч’Ч‘Ч™ЧЁ ЧЎЧЧЁЧ” ЧњЧћЧ¤Ч’Ч™Ч Ч” Ч©ЧЄЧ§Ч¤Ч” ЧђЧ•ЧЄЧ”</td>
+      <td class="description-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/8/9/7/3897319-46.png]https://news.walla.co.il/item/3749974
+Ч”Ч©ЧЁ ЧњЧ‘Ч™ЧЧ—Ч•Чџ ЧњЧђЧ•ЧћЧ™ <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧђЧ™ЧЄЧћЧЁ Ч‘Чџ Ч’Ч‘Ч™ЧЁ</span> Ч”Ч’Ч™Чў ЧњЧ©Ч›Ч•Ч Ч” Ч‘Ч‘Ч™ЧЄ Ч©ЧћЧ© Ч‘Ч” ЧЁЧ•ЧЎЧЎ Ч’ЧЁЧ¤Ч™ЧЧ™ Ч©Чњ Ч“Ч’Чњ Ч”ЧЁЧ©Ч•ЧЄ Ч”Ч¤ЧњЧЎЧЧ™Ч Ч™ЧЄ, Ч•Ч ЧЄЧ§Чњ Ч‘ЧўЧ©ЧЁЧ•ЧЄ Ч—ЧЁЧ“Ч™Чќ ЧћЧ”Ч–ЧЁЧќ Ч”Ч§Ч™Ч¦Ч•Ч Ч™ Ч©Ч”Ч’Ч™ЧўЧ• ЧњЧ”Ч¤Ч’Ч™Чџ ЧћЧ•ЧњЧ•. Ч©Ч•ЧЧЁЧ™Чќ Ч”Ч•Ч–ЧўЧ§Ч• ЧњЧћЧ§Ч•Чќ: "ЧђЧ™ЧњЧ” Ч‘Чџ Ч’Ч‘Ч™ЧЁ Ч”Ч•ЧЄЧ§Ч¤Ч” ЧўЧњ Ч™Ч“Ч™ ЧћЧ¤Ч’Ч™Ч Ч” - Ч•ЧЎЧЧЁЧ” ЧњЧ” Ч›Ч”Ч’Ч Ч” ЧўЧ¦ЧћЧ™ЧЄ"</td>
+      <td class="content-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/8/9/7/3897319-46.png]https://news.walla.co.il/item/3749974
+Ч”Ч©ЧЁ ЧњЧ‘Ч™ЧЧ—Ч•Чџ ЧњЧђЧ•ЧћЧ™ <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧђЧ™ЧЄЧћЧЁ Ч‘Чџ Ч’Ч‘Ч™ЧЁ</span> Ч”Ч’Ч™Чў ЧњЧ©Ч›Ч•Ч Ч” Ч‘Ч‘Ч™ЧЄ Ч©ЧћЧ© Ч‘Ч” ЧЁЧ•ЧЎЧЎ Ч’ЧЁЧ¤Ч™ЧЧ™ Ч©Чњ Ч“Ч’Чњ Ч”ЧЁЧ©Ч•ЧЄ Ч”Ч¤ЧњЧЎЧЧ™Ч Ч™ЧЄ, Ч•Ч ЧЄЧ§Чњ Ч‘ЧўЧ©ЧЁЧ•ЧЄ Ч—ЧЁЧ“Ч™Чќ ЧћЧ”Ч–ЧЁЧќ Ч”Ч§Ч™Ч¦Ч•Ч Ч™ Ч©Ч”Ч’Ч™ЧўЧ• ЧњЧ”Ч¤Ч’Ч™Чџ ЧћЧ•ЧњЧ•. Ч©Ч•ЧЧЁЧ™Чќ Ч”Ч•Ч–ЧўЧ§Ч• ЧњЧћЧ§Ч•Чќ: "ЧђЧ™ЧњЧ” Ч‘Чџ Ч’Ч‘Ч™ЧЁ Ч”Ч•ЧЄЧ§Ч¤Ч” ЧўЧњ Ч™Ч“Ч™ ЧћЧ¤Ч’Ч™Ч Ч” - Ч•ЧЎЧЧЁЧ” ЧњЧ” Ч›Ч”Ч’Ч Ч” ЧўЧ¦ЧћЧ™ЧЄ"</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">11</td>
+      <td class="article-id-cell">3ec4bc1e</td>
+      <td class="politician-cell">
+        <div class="politician-tag">ЧћЧЧ™ Ч¦ЧЁЧ¤ЧЄЧ™ Ч”ЧЁЧ›Ч‘Ч™</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Ч›Чњ Ч”Ч—Ч“Ч©Ч•ЧЄ Ч‘ЧЄЧ—Ч•Чќ Ч”Ч¤Ч•ЧњЧ™ЧЧ™ ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 14.5.2025</div>
+      </td>
+      <td class="title-cell">Ч—"Ч› Ч™Ч© ЧўЧЄЧ™Ч“ Ч Ч’Ч“ Ч”Ч©ЧЁЧ” Ч’Ч•ЧњЧџ: "Ч™ЧЁЧ™Ч§Ч” Ч‘Ч¤ЧЁЧ¦Ч•ЧЈ Ч©Чњ Ч”Ч Ч©Ч™Чќ Ч‘Ч™Ч©ЧЁЧђЧњ"</td>
+      <td class="description-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/7/2/4/3724968-46.jpg]https://news.walla.co.il/item/3749765
+Ч‘ЧћЧ›ЧЄЧ‘ Ч“Ч—Ч•ЧЈ ЧњЧ©ЧЁЧ” ЧњЧ©Ч™Ч•Ч•Ч™Ч•Чџ Ч—Ч‘ЧЁЧЄЧ™, Ч“ЧЁЧ©Ч” Ч—"Ч› <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧћЧЧ™ Ч¦ЧЁЧ¤ЧЄЧ™ Ч”ЧЁЧ›Ч‘Ч™</span> ЧћЧ’Ч•ЧњЧџ ЧњЧўЧ¦Ч•ЧЁ ЧђЧЄ Ч”ЧњЧ™Чљ Ч”ЧћЧ™Ч Ч•Ч™ Ч©Чњ ЧўЧћЧ™ Ч›Ч”Чџ, Ч”ЧћЧ•ЧўЧћЧ“ ЧњЧЄЧ¤Ч§Ч™Ч“ Чћ"Чћ ЧћЧ Ч›"Чњ Ч”ЧћЧ©ЧЁЧ“. ""ЧћЧ™Ч Ч•Ч™ ЧћЧ Ч›"Чњ Ч’Ч‘ЧЁ Ч‘Ч”Ч™Ч ЧЄЧџ Ч”Ч™ЧўЧ“ЧЁЧџ Ч©Чњ Ч Ч©Ч™Чќ ЧћЧ›ЧњЧњ ЧћЧ©ЧЁЧ“Ч™ Ч”ЧћЧћЧ©ЧњЧ” ЧћЧ¤ЧЁ ЧђЧЄ Ч”Ч—Ч•Ч§ Ч‘Ч™Ч©ЧЁЧђЧњ - Ч–Ч•Ч”Ч™ Ч—ЧЄЧ™ЧЁЧЄ ЧЄЧ—ЧЄ ЧЄЧ›ЧњЧ™ЧЄ Ч”ЧћЧ©ЧЁЧ“ Ч‘ЧЁЧђЧ©Ч• ЧђЧЄ ЧўЧ•ЧћЧ“ЧЄ"</td>
+      <td class="content-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/7/2/4/3724968-46.jpg]https://news.walla.co.il/item/3749765
+Ч‘ЧћЧ›ЧЄЧ‘ Ч“Ч—Ч•ЧЈ ЧњЧ©ЧЁЧ” ЧњЧ©Ч™Ч•Ч•Ч™Ч•Чџ Ч—Ч‘ЧЁЧЄЧ™, Ч“ЧЁЧ©Ч” Ч—"Ч› <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">ЧћЧЧ™ Ч¦ЧЁЧ¤ЧЄЧ™ Ч”ЧЁЧ›Ч‘Ч™</span> ЧћЧ’Ч•ЧњЧџ ЧњЧўЧ¦Ч•ЧЁ ЧђЧЄ Ч”ЧњЧ™Чљ Ч”ЧћЧ™Ч Ч•Ч™ Ч©Чњ ЧўЧћЧ™ Ч›Ч”Чџ, Ч”ЧћЧ•ЧўЧћЧ“ ЧњЧЄЧ¤Ч§Ч™Ч“ Чћ"Чћ ЧћЧ Ч›"Чњ Ч”ЧћЧ©ЧЁЧ“. ""ЧћЧ™Ч Ч•Ч™ ЧћЧ Ч›"Чњ Ч’Ч‘ЧЁ Ч‘Ч”Ч™Ч ЧЄЧџ Ч”Ч™ЧўЧ“ЧЁЧџ Ч©Чњ Ч Ч©Ч™Чќ ЧћЧ›ЧњЧњ ЧћЧ©ЧЁЧ“Ч™ Ч”ЧћЧћЧ©ЧњЧ” ЧћЧ¤ЧЁ ЧђЧЄ Ч”Ч—Ч•Ч§ Ч‘Ч™Ч©ЧЁЧђЧњ - Ч–Ч•Ч”Ч™ Ч—ЧЄЧ™ЧЁЧЄ ЧЄЧ—ЧЄ ЧЄЧ›ЧњЧ™ЧЄ Ч”ЧћЧ©ЧЁЧ“ Ч‘ЧЁЧђЧ©Ч• ЧђЧЄ ЧўЧ•ЧћЧ“ЧЄ"</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">12</td>
+      <td class="article-id-cell">68e26562</td>
+      <td class="politician-cell">
+        <div class="politician-tag">ЧђЧњЧ™ Ч›Ч”Чџ</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Ч›Чњ Ч”Ч—Ч“Ч©Ч•ЧЄ Ч‘ЧЄЧ—Ч•Чќ Ч”Ч¤Ч•ЧњЧ™ЧЧ™ ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 13.5.2025</div>
+      </td>
+      <td class="title-cell">Ч”Ч©ЧЁ ЧЎЧўЧЁ: Ч Ч ЧЎЧ” Ч‘Ч™ЧћЧ™Чќ Ч”Ч§ЧЁЧ•Ч‘Ч™Чќ ЧњЧ”Ч’Ч™Чў ЧњЧўЧЎЧ§ЧЄ Ч—ЧЧ•Ч¤Ч™Чќ ЧўЧњ Ч‘ЧЎЧ™ЧЎ ЧћЧЄЧ•Ч•Ч” Ч•Ч•Ч™ЧЧ§Ч•ЧЈ</td>
+      <td class="description-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/8/8/8/3888592-46.jpg]https://news.walla.co.il/item/3749341
+Ч‘ЧћЧ”ЧњЧљ Ч‘Ч™Ч§Ч•ЧЁЧ• Ч‘ЧЧ•Ч§Ч™Ч•, Ч”ЧЄЧ™Ч™Ч—ЧЎ Ч©ЧЁ Ч”Ч—Ч•ЧҐ ЧњЧћЧ©ЧњЧ—ЧЄ Ч”Ч™Ч©ЧЁЧђЧњЧ™ЧЄ Ч©Ч™Ч¦ЧђЧ” ЧњЧ§ЧЧђЧЁ Ч•Ч”ЧћЧђЧћЧ¦Ч™Чќ ЧњЧ”Ч’Ч™Чў ЧњЧўЧЎЧ§Ч”. Ч•Ч•Ч™ЧЧ§Ч•ЧЈ Ч™ЧћЧЁЧ™Чђ Ч”Ч™Ч•Чќ ЧћЧ™Ч©ЧЁЧђЧњ ЧњЧ§ЧЧђЧЁ, Ч™Ч—Ч“ ЧўЧќ ЧђЧ“Чќ Ч‘Ч•Ч”ЧњЧЁ, Ч•Ч”Ч©Ч Ч™Ч™Чќ Ч™Ч¦ЧЧЁЧ¤Ч• ЧњЧћЧ•"Чћ Ч”ЧћЧЄЧ—Ч“Ч© Ч‘Ч“Ч•Ч—Чђ</td>
+      <td class="content-cell">[https://images.wcdn.co.il/f_auto,q_auto,w_300/3/8/8/8/3888592-46.jpg]https://news.walla.co.il/item/3749341
+Ч‘ЧћЧ”ЧњЧљ Ч‘Ч™Ч§Ч•ЧЁЧ• Ч‘ЧЧ•Ч§Ч™Ч•, Ч”ЧЄЧ™Ч™Ч—ЧЎ Ч©ЧЁ Ч”Ч—Ч•ЧҐ ЧњЧћЧ©ЧњЧ—ЧЄ Ч”Ч™Ч©ЧЁЧђЧњЧ™ЧЄ Ч©Ч™Ч¦ЧђЧ” ЧњЧ§ЧЧђЧЁ Ч•Ч”ЧћЧђЧћЧ¦Ч™Чќ ЧњЧ”Ч’Ч™Чў ЧњЧўЧЎЧ§Ч”. Ч•Ч•Ч™ЧЧ§Ч•ЧЈ Ч™ЧћЧЁЧ™Чђ Ч”Ч™Ч•Чќ ЧћЧ™Ч©ЧЁЧђЧњ ЧњЧ§ЧЧђЧЁ, Ч™Ч—Ч“ ЧўЧќ ЧђЧ“Чќ Ч‘Ч•Ч”ЧњЧЁ, Ч•Ч”Ч©Ч Ч™Ч™Чќ Ч™Ч¦ЧЧЁЧ¤Ч• ЧњЧћЧ•"Чћ Ч”ЧћЧЄЧ—Ч“Ч© Ч‘Ч“Ч•Ч—Чђ</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">13</td>
+      <td class="article-id-cell">358e1a38</td>
+      <td class="politician-cell">
+        <div class="politician-tag">Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Maariv.co.il - Ч¤Ч•ЧњЧ™ЧЧ™ - ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 15.5.2025</div>
+      </td>
+      <td class="title-cell">Ч§Ч•Ч ЧЎЧ•Чњ Ч™Ч©ЧЁЧђЧњ Ч‘Ч Ч™Ч• Ч™Ч•ЧЁЧ§ ЧњЧ©ЧўЧ‘ЧЁ: "ЧђЧ™Чџ Ч™Ч•ЧЄЧЁ ЧћЧ¤Ч—Ч™Ч“ ЧћЧЧЁЧђЧћЧ¤"</td>
+      <td class="description-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/980981]
+ЧўЧ•''Ч“ ЧђЧЎЧ™ Ч©ЧЁЧ™Ч‘, ЧњЧ©ЧўЧ‘ЧЁ Ч§Ч•Ч ЧЎЧ•Чњ Ч™Ч©ЧЁЧђЧњ Ч‘Ч Ч™Ч• Ч™Ч•ЧЁЧ§, Ч‘ЧЁЧ™ЧђЧ™Ч•Чџ Чњ-103FM ЧўЧњ Ч”ЧћЧ¦Ч‘ Ч©Чњ Ч™Ч©ЧЁЧђЧњ ЧћЧ•Чњ ЧђЧЁЧ¦Ч•ЧЄ Ч”Ч‘ЧЁЧ™ЧЄ, ЧўЧњ Ч”ЧћЧЄЧ Ч•ЧЄ Ч©Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤ Ч§Ч™Ч‘Чњ ЧћЧ§ЧЧђЧЁ, Ч•ЧўЧњ Ч”Ч©Ч¤ЧўЧ•ЧЄ Ч”ЧЄЧ•Ч›Ч Ч™Ч•ЧЄ Ч©ЧњЧ• ЧўЧњ Ч™Ч©ЧЁЧђЧњ
+</td>
+      <td class="content-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/980981]
+ЧўЧ•''Ч“ ЧђЧЎЧ™ Ч©ЧЁЧ™Ч‘, ЧњЧ©ЧўЧ‘ЧЁ Ч§Ч•Ч ЧЎЧ•Чњ Ч™Ч©ЧЁЧђЧњ Ч‘Ч Ч™Ч• Ч™Ч•ЧЁЧ§, Ч‘ЧЁЧ™ЧђЧ™Ч•Чџ Чњ-103FM ЧўЧњ Ч”ЧћЧ¦Ч‘ Ч©Чњ Ч™Ч©ЧЁЧђЧњ ЧћЧ•Чњ ЧђЧЁЧ¦Ч•ЧЄ Ч”Ч‘ЧЁЧ™ЧЄ, ЧўЧњ Ч”ЧћЧЄЧ Ч•ЧЄ Ч©Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤ Ч§Ч™Ч‘Чњ ЧћЧ§ЧЧђЧЁ, Ч•ЧўЧњ Ч”Ч©Ч¤ЧўЧ•ЧЄ Ч”ЧЄЧ•Ч›Ч Ч™Ч•ЧЄ Ч©ЧњЧ• ЧўЧњ Ч™Ч©ЧЁЧђЧњ
+</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">14</td>
+      <td class="article-id-cell">63065fb0</td>
+      <td class="politician-cell">
+        <div class="politician-tag">Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Maariv.co.il - Ч¤Ч•ЧњЧ™ЧЧ™ - ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 15.5.2025</div>
+      </td>
+      <td class="title-cell">ЧђЧ¤Ч™ ЧђЧ™ЧЄЧќ ЧћЧ–Ч”Ч™ЧЁ ЧћЧ¤Ч Ч™ ЧўЧЎЧ§Ч”: "Ч‘ЧђЧ–Ч•ЧЁ Ч©ЧњЧ Ч• ЧњЧ¤Ч Ч™ Ч•ЧђЧ—ЧЁЧ™ Ч©ЧЧЁЧђЧћЧ¤ Ч™Ч™ЧЎЧў - Ч”Ч—ЧњЧ©Ч™Чќ Ч ЧЧ‘Ч—Ч™Чќ"</td>
+      <td class="description-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/960871]
+ЧЄЧђ"Чњ Ч‘ЧћЧ™Чњ' ЧђЧ¤Ч™ ЧђЧ™ЧЄЧќ, ЧњЧ©ЧўЧ‘ЧЁ ЧћЧ¤Ч§Ч“ ЧўЧ•Ч¦Ч‘ЧЄ Ч”Ч’ЧњЧ™Чњ Ч•Ч©ЧЁ Ч‘ЧћЧћЧ©ЧњЧ•ЧЄ Ч™Ч©ЧЁЧђЧњ, Ч”ЧЄЧ™Ч™Ч—ЧЎ Ч‘Ч©Ч™Ч—Ч” ЧўЧќ Ч Ч™ЧЎЧ™Чќ ЧћЧ©ЧўЧњ Ч•ЧњЧ™ЧђЧЄ ЧЁЧ•Чџ ЧњЧђЧ¤Ч©ЧЁЧ•ЧЄ ЧњЧ”Ч’Ч™Чў ЧњЧўЧЎЧ§Ч” ЧўЧќ Ч—ЧћЧђЧЎ Ч‘ЧўЧ§Ч‘Ч•ЧЄ Ч‘Ч™Ч§Ч•ЧЁ Ч Ч©Ч™Чђ ЧђЧЁЧ¦Ч•ЧЄ Ч”Ч‘ЧЁЧ™ЧЄ <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤</span> Ч‘ЧћЧ–ЧЁЧ— Ч”ЧЄЧ™Ч›Ч•Чџ
+</td>
+      <td class="content-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/960871]
+ЧЄЧђ"Чњ Ч‘ЧћЧ™Чњ' ЧђЧ¤Ч™ ЧђЧ™ЧЄЧќ, ЧњЧ©ЧўЧ‘ЧЁ ЧћЧ¤Ч§Ч“ ЧўЧ•Ч¦Ч‘ЧЄ Ч”Ч’ЧњЧ™Чњ Ч•Ч©ЧЁ Ч‘ЧћЧћЧ©ЧњЧ•ЧЄ Ч™Ч©ЧЁЧђЧњ, Ч”ЧЄЧ™Ч™Ч—ЧЎ Ч‘Ч©Ч™Ч—Ч” ЧўЧќ Ч Ч™ЧЎЧ™Чќ ЧћЧ©ЧўЧњ Ч•ЧњЧ™ЧђЧЄ ЧЁЧ•Чџ ЧњЧђЧ¤Ч©ЧЁЧ•ЧЄ ЧњЧ”Ч’Ч™Чў ЧњЧўЧЎЧ§Ч” ЧўЧќ Ч—ЧћЧђЧЎ Ч‘ЧўЧ§Ч‘Ч•ЧЄ Ч‘Ч™Ч§Ч•ЧЁ Ч Ч©Ч™Чђ ЧђЧЁЧ¦Ч•ЧЄ Ч”Ч‘ЧЁЧ™ЧЄ <span style="background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;">Ч“Ч•Ч ЧњЧ“ ЧЧЁЧђЧћЧ¤</span> Ч‘ЧћЧ–ЧЁЧ— Ч”ЧЄЧ™Ч›Ч•Чџ
+</td>
+    </tr>
+    
+    <tr>
+      <td class="id-cell">15</td>
+      <td class="article-id-cell">b3e57ac</td>
+      <td class="politician-cell">
+        <div class="politician-tag">Ч‘Ч Ч™ЧћЧ™Чџ Ч ЧЄЧ Ч™Ч”Ч•</div>
+        <div class="source-info">ЧћЧ§Ч•ЧЁ: Maariv.co.il - Ч¤Ч•ЧњЧ™ЧЧ™ - ЧћЧ“Ч™Ч Ч™</div>
+        <div class="source-info">ЧЄЧђЧЁЧ™Чљ: 16.5.2025</div>
+      </td>
+      <td class="title-cell">ЧђЧњЧ™ Ч›Ч”Чџ Ч–"Чњ Ч™Ч•Ч‘Чђ ЧњЧ§Ч‘Ч•ЧЁЧ” Ч‘Ч™Ч©ЧЁЧђЧњ? Ч”Ч¦ЧўЧ“ Ч©Чњ ЧђЧњ Ч’'Ч•ЧњЧђЧ Ч™ Ч™Ч›Ч•Чњ ЧњЧЧЁЧ•ЧЈ ЧђЧЄ Ч”Ч§ЧњЧ¤Ч™Чќ</td>
+      <td class="description-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/947907]
+ЧЁЧ§ ЧњЧђЧ—ЧЁЧ•Ч Ч” Ч Ч¤Ч’Ч©Ч” Ч Ч“Ч™Ч” Ч›Ч”Чџ, ЧђЧњЧћЧ ЧЄЧ• Ч©Чњ ЧґЧ”ЧђЧ™Ч© Ч©ЧњЧ Ч• Ч‘Ч“ЧћЧ©Ч§Чґ, ЧђЧњЧ™ Ч›Ч”Чџ Ч–ЧґЧњ, ЧўЧќ ЧЁЧђЧ© Ч”ЧћЧћЧ©ЧњЧ” Ч ЧЄЧ Ч™Ч”Ч• Ч©Ч¦Ч™Ч™Чџ ЧђЧЄ Ч”ЧћЧђЧћЧ¦Ч™Чќ ЧњЧ”Ч©Ч‘ЧЄЧ•. Ч›ЧўЧЄ, Ч©ЧњЧ™Ч ЧЎЧ•ЧЁЧ™Ч” Ч”Ч—Ч“Ч© ЧЎЧ™Ч¤Ч§ ЧђЧћЧ™ЧЁЧ” ЧћЧ¤ЧЄЧ™ЧўЧ” Ч©ЧЄЧ•ЧњЧ” Ч”ЧЁЧ‘Ч” ЧЄЧ§Ч•Ч•ЧЄ Ч‘Ч™Ч©ЧЁЧђЧњ
+</td>
+      <td class="content-cell">[https://images.maariv.co.il/image/upload/f_auto,fl_lossy/c_fill,g_faces:center,h_460,w_690/947907]
+ЧЁЧ§ ЧњЧђЧ—ЧЁЧ•Ч Ч” Ч Ч¤Ч’Ч©Ч” Ч Ч“Ч™Ч” Ч›Ч”Чџ, ЧђЧњЧћЧ ЧЄЧ• Ч©Чњ ЧґЧ”ЧђЧ™Ч© Ч©ЧњЧ Ч• Ч‘Ч“ЧћЧ©Ч§Чґ, ЧђЧњЧ™ Ч›Ч”Чџ Ч–ЧґЧњ, ЧўЧќ ЧЁЧђЧ© Ч”ЧћЧћЧ©ЧњЧ” Ч ЧЄЧ Ч™Ч”Ч• Ч©Ч¦Ч™Ч™Чџ ЧђЧЄ Ч”ЧћЧђЧћЧ¦Ч™Чќ ЧњЧ”Ч©Ч‘ЧЄЧ•. Ч›ЧўЧЄ, Ч©ЧњЧ™Ч ЧЎЧ•ЧЁЧ™Ч” Ч”Ч—Ч“Ч© ЧЎЧ™Ч¤Ч§ ЧђЧћЧ™ЧЁЧ” ЧћЧ¤ЧЄЧ™ЧўЧ” Ч©ЧЄЧ•ЧњЧ” Ч”ЧЁЧ‘Ч” ЧЄЧ§Ч•Ч•ЧЄ Ч‘Ч™Ч©ЧЁЧђЧњ
+</td>
+    </tr>
+    
+  </table>
+</body>
+</html>

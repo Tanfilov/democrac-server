@@ -1,0 +1,5 @@
+אלי כהן with context - Minister of Foreign Affairs: שר החוץ אלי כהן דיבר היום על ההחלטה החדשה
+אלי כהן with context - far away in text: הממשלה קיבלה החלטה חדשה. שר החוץ התייחס לנושא. אלי כהן טען כי מדיניות זו תשרת את המדינה.
+אלי כהן without context - simple mention: אלי כהן הגיע לאירוע. רבים באו לברך אותו.
+אלי כהן with party context: חבר הכנסת מטעם הליכוד, אלי כהן, השתתף בישיבה
+Regular politician without context restrictions: בנימין נתניהו נאם היום בכנסת

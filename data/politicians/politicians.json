@@ -28,7 +28,7 @@
   {
     "name": "יואב גלנט",
     "party": "הליכוד",
-    "position": "שר הביטחון",
+    "position": "", 
     "aliases": [],
     "image": "",
     "image_url": ""
@@ -92,7 +92,7 @@
   {
     "name": "ישראל כ\"ץ",
     "party": "הליכוד",
-    "position": "",
+    "position": "שר הביטחון",
     "aliases": [],
     "image": "ישראל_כץ.png",
     "image_url": ""
