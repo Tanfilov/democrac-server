@@ -311,37 +311,85 @@ const findPoliticianMentions = (text) => {
   
   // Hebrew prefixes that might appear before names
   const prefixes = ['', 'ל', 'מ', 'ב', 'ו', 'ש', 'ה'];
-  const wordBoundaries = [' ', '.', ',', ':', ';', '?', '!', '"', "'", '(', ')', '[', ']', '{', '}', '\n', '\t'];
+  const wordBoundaries = [' ', '.', ',', ':', ';', '?', '!', '"', "'", '(', ')', '[', ']', '{', '}', '\n', '\t', '"', '"'];
   
-  return POLITICIANS.filter(politician => {
+  // Normalize quotes in the text to standard quote characters
+  const normalizedText = text
+    .replace(/[""״]/g, '"')  // Normalize various quote types to standard quotes
+    .replace(/['׳']/g, "'"); // Normalize various apostrophe types
+  
+  const detectedPoliticians = new Set();
+  
+  // 1. Direct name and alias matching
+  POLITICIANS.forEach(politician => {
     const politicianName = politician.he;
+    let detected = false;
     
-    // Check for exact name match with possible prefixes and word boundaries
+    // Check exact name with various Hebrew prefixes
     for (const prefix of prefixes) {
       const nameWithPrefix = prefix + politicianName;
       
-      // Check for the name as a whole word
-      if (isExactMatch(text, nameWithPrefix, wordBoundaries)) {
-        return true;
+      if (isExactMatch(normalizedText, nameWithPrefix, wordBoundaries)) {
+        detectedPoliticians.add(politicianName);
+        detected = true;
+        break;
       }
     }
     
-    // Check aliases
-    if (politician.aliases && politician.aliases.length > 0) {
+    // Check aliases if not detected by name
+    if (!detected && politician.aliases && politician.aliases.length > 0) {
       for (const alias of politician.aliases) {
-        if (alias.length >= 3) { // Only check aliases that are at least 3 characters
-          for (const prefix of prefixes) {
-            const aliasWithPrefix = prefix + alias;
-            if (isExactMatch(text, aliasWithPrefix, wordBoundaries)) {
-              return true;
-            }
+        if (alias.length < 3) continue; // Skip very short aliases
+        
+        for (const prefix of prefixes) {
+          const aliasWithPrefix = prefix + alias;
+          
+          if (isExactMatch(normalizedText, aliasWithPrefix, wordBoundaries)) {
+            detectedPoliticians.add(politicianName);
+            detected = true;
+            break;
           }
+        }
+        
+        if (detected) break;
+      }
+    }
+  });
+  
+  // 2. Position-based detection
+  const positionMap = {
+    'ראש הממשלה': 'ראש הממשלה',
+    'רה"מ': 'ראש הממשלה',
+    'ראש האופוזיציה': 'ראש האופוזיציה',
+    'שר הביטחון': 'שר הביטחון',
+    'שר האוצר': 'שר האוצר',
+    'שר החוץ': 'שר החוץ',
+    'שר הפנים': 'שר הפנים',
+    'השר לביטחון לאומי': 'השר לביטחון לאומי',
+    'יושב ראש הכנסת': 'יושב ראש הכנסת',
+    'נשיא המדינה': 'נשיא המדינה',
+    'הנשיא': 'נשיא המדינה'
+  };
+  
+  // Check if any positions are mentioned in the text
+  Object.entries(positionMap).forEach(([positionTerm, standardPosition]) => {
+    // Check with prefixes
+    for (const prefix of prefixes) {
+      const posWithPrefix = prefix + positionTerm;
+      
+      if (isExactMatch(normalizedText, posWithPrefix, wordBoundaries)) {
+        // Find politicians with this position
+        const politiciansWithPosition = POLITICIANS.filter(p => p.position === standardPosition);
+        
+        if (politiciansWithPosition.length > 0) {
+          const politician = politiciansWithPosition[0]; // Take the first one
+          detectedPoliticians.add(politician.he);
         }
       }
     }
-    
-    return false;
-  }).map(p => p.he);
+  });
+  
+  return Array.from(detectedPoliticians);
 };
 
 // Helper function to check for exact word matches
@@ -354,13 +402,36 @@ function isExactMatch(text, word, boundaries) {
     const beforeChar = index === 0 ? ' ' : text[index - 1];
     const afterChar = index + word.length >= text.length ? ' ' : text[index + word.length];
     
+    // Standard boundary check
     if ((boundaries.includes(beforeChar) || index === 0) && 
         (boundaries.includes(afterChar) || index + word.length === text.length)) {
       return true;
     }
+    
+    // Check if inside quotes - be more lenient with boundary check
+    if (isInsideQuotes(text, index, index + word.length)) {
+      const isSpaceOrBoundaryBefore = beforeChar === ' ' || boundaries.includes(beforeChar);
+      const isSpaceOrBoundaryAfter = afterChar === ' ' || boundaries.includes(afterChar);
+      
+      if (isSpaceOrBoundaryBefore && isSpaceOrBoundaryAfter) {
+        return true;
+      }
+    }
   }
   
   return false;
+}
+
+// Helper to check if a position is inside quotes
+function isInsideQuotes(text, startPos, endPos) {
+  // Count quotes before position
+  let quoteCount = 0;
+  for (let i = 0; i < startPos; i++) {
+    if (text[i] === '"') quoteCount++;
+  }
+  
+  // If odd number of quotes before, we're inside quotes
+  return quoteCount % 2 === 1;
 }
 
 // Helper function to find all occurrences of a substring
@@ -378,34 +449,43 @@ function findAllOccurrences(text, subtext) {
 
 // Enhanced politician detection using existing data
 const enhancedPoliticianDetection = async (article) => {
+  console.log(`\n--- Enhanced detection for article ${article.id}: "${article.title}" ---`);
+  
   // Step 1: Check title and description
   let detectedPoliticians = [];
   let confidenceScores = {};
+  let detectionMethods = {};
   
   // Check title - highest confidence
   if (article.title) {
+    console.log(`Checking title: ${article.title}`);
     const titlePoliticians = findPoliticianMentions(article.title);
     titlePoliticians.forEach(p => {
       detectedPoliticians.push(p);
       confidenceScores[p] = (confidenceScores[p] || 0) + 3; // Higher weight for title matches
+      detectionMethods[p] = [...(detectionMethods[p] || []), 'title'];
     });
   }
   
   // Check description
   if (article.description) {
+    console.log(`Checking description: ${article.description.substring(0, 100)}${article.description.length > 100 ? '...' : ''}`);
     const descriptionPoliticians = findPoliticianMentions(article.description);
     descriptionPoliticians.forEach(p => {
       if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
       confidenceScores[p] = (confidenceScores[p] || 0) + 2; // Medium weight for description matches
+      detectionMethods[p] = [...(detectionMethods[p] || []), 'description'];
     });
   }
   
   // Step 2: If we have content already, check it
   if (article.content && article.content.length > 50) {
+    console.log(`Checking content (${article.content.length} characters)`);
     const contentPoliticians = findPoliticianMentions(article.content);
     contentPoliticians.forEach(p => {
       if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
       confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
+      detectionMethods[p] = [...(detectionMethods[p] || []), 'content'];
     });
   } 
   // If we don't have sufficient content, scrape it
@@ -417,55 +497,67 @@ const enhancedPoliticianDetection = async (article) => {
       if (scrapedContent && scrapedContent.length > 50) {
         // Update the article content in the database
         await new Promise((resolve, reject) => {
-          db.run('UPDATE articles SET content = ? WHERE id = ?', [scrapedContent, article.id], (err) => {
-            if (err) {
-              console.error('Error updating article content:', err);
-              reject(err);
-            } else {
-              resolve();
+          db.run(
+            'UPDATE articles SET content = ? WHERE id = ?',
+            [scrapedContent, article.id],
+            (err) => {
+              if (err) {
+                console.error(`Error updating article content:`, err);
+                reject(err);
+              } else {
+                console.log(`Updated content for article ${article.id} (${scrapedContent.length} characters)`);
+                resolve();
+              }
             }
-          });
+          );
         });
         
         // Check for politicians in the scraped content
-        const scrapedContentPoliticians = findPoliticianMentions(scrapedContent);
-        scrapedContentPoliticians.forEach(p => {
+        const contentPoliticians = findPoliticianMentions(scrapedContent);
+        contentPoliticians.forEach(p => {
           if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
           confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
+          detectionMethods[p] = [...(detectionMethods[p] || []), 'scraped_content'];
         });
       }
     } catch (error) {
-      console.error(`Error scraping content for politician detection: ${error.message}`);
+      console.error(`Error scraping content for article ${article.id}:`, error);
     }
   }
   
-  // Identify special and foreign politicians (like Trump) that might need special handling
+  // Step 3: Sort politicians by confidence score and filter out low confidence mentions
+  const politiciansWithScores = detectedPoliticians.map(name => ({
+    name,
+    score: confidenceScores[name] || 0,
+    methods: detectionMethods[name] || []
+  })).sort((a, b) => b.score - a.score);
+  
+  // Identify special and foreign politicians that might need special handling
   const specialPoliticians = [
     'דונלד טראמפ', 
     'ג\'ו ביידן', 
     'קמאלה האריס',
-    'עמנואל מקרון',
-    'הנשיא מקרון',
-    'נשיא סוריה'
+    'עמנואל מקרון'
   ];
   
   // Filter results based on confidence score with special rules for certain politicians
-  const highConfidencePoliticians = detectedPoliticians.filter(p => {
-    // For special politicians like Trump, use a lower threshold
-    if (specialPoliticians.includes(p)) {
-      return confidenceScores[p] >= 1;
-    }
-    // For regular politicians, use normal threshold
-    return confidenceScores[p] >= 2;
-  });
+  const highConfidencePoliticians = politiciansWithScores
+    .filter(p => {
+      // For special politicians like Trump, use a lower threshold
+      if (specialPoliticians.includes(p.name)) {
+        return p.score >= 1;
+      }
+      // For regular politicians, use normal threshold
+      return p.score >= 2;
+    })
+    .map(p => p.name);
   
-  // Log detection details for debugging
-  console.log(`Article ID ${article.id}: Detected politicians with confidence:`, 
-    detectedPoliticians.map(p => `${p} (score: ${confidenceScores[p]})`).join(', '));
-  console.log(`Article ID ${article.id}: High confidence politicians:`, highConfidencePoliticians.join(', '));
+  console.log('Politician detection results:', 
+    politiciansWithScores.map(p => `${p.name} (confidence: ${p.score}, methods: ${p.methods.join(',')})`).join(', ')
+  );
+  console.log('High confidence politicians:', highConfidencePoliticians.join(', '));
   
-  // Return unique high-confidence politicians
-  return [...new Set(highConfidencePoliticians)];
+  return highConfidencePoliticians;
 };
 
 // Update politician mentions for an article
