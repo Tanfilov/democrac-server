@@ -26,20 +26,92 @@ function findPoliticianMentions(text, POLITICIANS) {
   const normalizedText = text
     .replace(/[""״]/g, '"')  // Normalize various quote types to standard quotes
     .replace(/['׳']/g, "'"); // Normalize various apostrophe types
+  
+  // Known nicknames and common variations for politicians
+  const nicknameMap = {
+    'בנימין נתניהו': ['ביבי', 'נתניהו'],
+    'יאיר לפיד': ['לפיד'],
+    'יצחק הרצוג': ['בוז׳י', 'בוזי', 'הרצוג'],
+    'גדי איזנקוט': ['איזנקוט'],
+    'בני גנץ': ['גנץ'],
+    'מרב מיכאלי': ['מיכאלי'],
+    'איילת שקד': ['שקד'],
+    'נפתלי בנט': ['בנט'],
+    'אביגדור ליברמן': ['ליברמן'],
+    'יוליה מלינובסקי': ['מלינובסקי']
+  };
+  
+  // Common positions in Hebrew politics with current position holders
+  const positionMap = {
+    'ראש הממשלה': ['בנימין נתניהו'],
+    'רה"מ': ['בנימין נתניהו'],
+    'ראש ממשלת ישראל': ['בנימין נתניהו'],
+    'שר האוצר': ['בצלאל סמוטריץ\''],
+    'שר הביטחון': ['יואב גלנט'],
+    'שר החוץ': ['ישראל כץ'],
+    'יו"ר האופוזיציה': ['יאיר לפיד'],
+    'נשיא המדינה': ['יצחק הרצוג'],
+    'הנשיא': ['יצחק הרצוג'],
+    'רמטכ"ל': ['הרצי הלוי'],
+    'הרמטכ"ל': ['הרצי הלוי'],
+  };
     
-  return POLITICIANS.filter(politician => {
+  // Get mentioned politicians through direct name matching
+  const detectedPoliticians = [];
+  
+  for (const politician of POLITICIANS) {
     const politicianName = politician.name || politician.he; // Support both name structures
+    
+    // Skip if no valid name
+    if (!politicianName) continue;
     
     // 1. Direct check - find exact name in text
     for (const prefix of prefixes) {
       const nameWithPrefix = prefix + politicianName;
       
       if (isExactMatch(normalizedText, nameWithPrefix, wordBoundaries)) {
-        return true;
+        if (!detectedPoliticians.includes(politicianName)) {
+          detectedPoliticians.push(politicianName);
+        }
+        break;
       }
     }
     
-    // 2. Special pattern for quoted speech/statements - handles "X said: "...Y..."" patterns
+    // 2. Check for nicknames and last names
+    const nicknames = nicknameMap[politicianName] || [];
+    // Extract last name and add it to nicknames if not already present
+    const nameParts = politicianName.split(' ');
+    if (nameParts.length > 1) {
+      const lastName = nameParts[nameParts.length - 1];
+      if (!nicknames.includes(lastName)) {
+        nicknames.push(lastName);
+      }
+    }
+    
+    for (const nickname of nicknames) {
+      for (const prefix of prefixes) {
+        const nameWithPrefix = prefix + nickname;
+        
+        if (isExactMatch(normalizedText, nameWithPrefix, wordBoundaries)) {
+          if (!detectedPoliticians.includes(politicianName)) {
+            detectedPoliticians.push(politicianName);
+          }
+          break;
+        }
+      }
+    }
+    
+    // 3. Check for position references
+    for (const [position, politicians] of Object.entries(positionMap)) {
+      if (normalizedText.includes(position) && !isModifiedPosition(normalizedText, position) && politicians.includes(politicianName)) {
+        if (!detectedPoliticians.includes(politicianName)) {
+          detectedPoliticians.push(politicianName);
+        }
+        break;
+      }
+    }
+    
+    // 4. Special pattern for quoted speech/statements - handles "X said: "...Y..."" patterns
     const specialPatterns = [
       // Name inside quotes after a colon (e.g., "X said: "...name..."")
       `:[^"]*"[^"]*\\b${politicianName}\\b[^"]*"`,
@@ -54,32 +126,23 @@ function findPoliticianMentions(text, POLITICIANS) {
     for (const pattern of specialPatterns) {
       const regex = new RegExp(pattern, 'i');
       if (regex.test(normalizedText)) {
-        return true;
+        if (!detectedPoliticians.includes(politicianName)) {
+          detectedPoliticians.push(politicianName);
+        }
+        break;
       }
     }
     
-    // 3. Check for name after a colon (common in news headlines)
+    // 5. Check for name after a colon (common in news headlines)
     const colonPattern = new RegExp(`:[^:]*\\b${politicianName}\\b`, 'i');
     if (colonPattern.test(normalizedText)) {
-      return true;
-    }
-    
-    // 4. Check for people specifically mentioned in the title as positions
-    const positionTerms = {
-      'ראש הממשלה': ['בנימין נתניהו'],
-      'נשיא המדינה': ['יצחק הרצוג'],
-      'שר הביטחון': ['יואב גלנט'],
-      'יו"ר האופוזיציה': ['יאיר לפיד'],
-      'הנשיא': ['יצחק הרצוג']
-    };
-    
-    for (const [position, politicians] of Object.entries(positionTerms)) {
-      if (normalizedText.includes(position) && politicians.includes(politicianName)) {
-        return true;
+      if (!detectedPoliticians.includes(politicianName)) {
+        detectedPoliticians.push(politicianName);
       }
+      continue;
     }
     
-    // Check aliases with all the same patterns
+    // 6. Check aliases with all the same patterns
     if (politician.aliases && politician.aliases.length > 0) {
       for (const alias of politician.aliases) {
         if (alias.length < 3) continue; // Skip very short aliases
@@ -89,7 +152,10 @@ function findPoliticianMentions(text, POLITICIANS) {
           const aliasWithPrefix = prefix + alias;
           
           if (isExactMatch(normalizedText, aliasWithPrefix, wordBoundaries)) {
-            return true;
+            if (!detectedPoliticians.includes(politicianName)) {
+              detectedPoliticians.push(politicianName);
+            }
+            break;
           }
         }
         
@@ -97,14 +163,17 @@ function findPoliticianMentions(text, POLITICIANS) {
         for (const pattern of specialPatterns.map(p => p.replace(politicianName, alias))) {
           const regex = new RegExp(pattern, 'i');
           if (regex.test(normalizedText)) {
-            return true;
+            if (!detectedPoliticians.includes(politicianName)) {
+              detectedPoliticians.push(politicianName);
+            }
+            break;
           }
         }
       }
     }
-    
-    return false;
-  }).map(p => p.name || p.he);
+  }
+  
+  return detectedPoliticians;
 }
 
 /**
@@ -453,40 +522,8 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
       });
     }
     
-    // Step 3: Apply the final inclusion rules
-    const relevantPoliticians = detectedPoliticians.filter(p => {
-      // Rule 1: Always include politicians from title or description
-      if (foundIn[p] && (foundIn[p].includes('title') || foundIn[p].includes('description'))) {
-        return true;
-      }
-      
-      // Rule 2: For body-only mentions, apply additional criteria
-      if (foundIn[p] && foundIn[p].includes('content') && 
-          !foundIn[p].includes('title') && !foundIn[p].includes('description')) {
-        
-        // Include if mentioned multiple times
-        if (mentionCounts[p] > 1) {
-          return true;
-        }
-        
-        // Include if mentioned early in text
-        if (contentPositions[p] === 'early') {
-          return true;
-        }
-        
-        // Include if mentioned in quotes
-        if (inQuotes[p]) {
-          return true;
-        }
-        
-        // Otherwise exclude
-        return false;
-      }
-      
-      return false; // Default exclusion
-    });
-    
-    return relevantPoliticians;
+    // IMPORTANT: Return ALL detected politicians without filtering
+    return detectedPoliticians;
   } catch (error) {
     console.error("Error in enhanced politician detection:", error);
     return [];
