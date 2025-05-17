@@ -53,4 +53,12 @@ Trigger a manual feed update (requires admin API key).
 Clear all news articles from the database (requires admin API key).
 
 ### POST /api/reset-politicians
-Clear all politician mentions and reprocess articles (requires admin API key). 
+Clear all politician mentions and reprocess articles (requires admin API key).
+
+### POST /api/fix-politician-detection/:id
+Fix politician detection for a specific article (requires admin API key).
+
+**Example:**
+```
+POST /api/fix-politician-detection/93
+``` 

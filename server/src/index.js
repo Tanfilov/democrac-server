@@ -1538,41 +1538,111 @@ app.post('/api/clear', (req, res) => {
 });
 
 // API endpoint to clear all politician mentions (requires admin API key)
-app.post('/api/reset-politicians', (req, res) => {
+app.post('/api/reset-politicians', async (req, res) => {
   // Check if API key is provided (simple auth)
   const apiKey = req.headers['x-admin-api-key'] || req.query.apiKey;
   if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
     return res.status(401).json({ error: 'Unauthorized - Admin API key required' });
   }
   
-  console.log('Clearing all politician mentions...');
+  console.log('Starting politician mentions reset process...');
   
-  // Delete all politician mentions
-  db.run('DELETE FROM politician_mentions', (err) => {
-    if (err) {
-      console.error('Error clearing politician mentions:', err);
-      return res.status(500).json({ error: 'Failed to clear politician mentions' });
-    }
+  try {
+    // Step 1: Delete all politician mentions
+    await new Promise((resolve, reject) => {
+      console.log('Clearing all politician mentions...');
+      db.run('DELETE FROM politician_mentions', (err) => {
+        if (err) {
+          console.error('Error clearing politician mentions:', err);
+          reject(err);
+        } else {
+          console.log('All politician mentions cleared successfully');
+          resolve();
+        }
+      });
+    });
     
+    // Send immediate response that deletion was successful
     res.json({ message: 'All politician mentions cleared successfully' });
     
-    // Start reprocessing all articles to detect politicians with the improved algorithm
+    // Step 2: Get all article IDs
     console.log('Re-processing all articles for politician detection...');
+    const articleIds = await new Promise((resolve, reject) => {
+      db.all('SELECT id FROM articles ORDER BY id', [], (err, rows) => {
+        if (err) {
+          console.error('Error fetching articles for reprocessing:', err);
+          reject(err);
+        } else {
+          resolve(rows.map(row => row.id));
+        }
+      });
+    });
     
-    // Get all article IDs
-    db.all('SELECT id FROM articles', [], (err, rows) => {
-      if (err) {
-        console.error('Error fetching articles for reprocessing:', err);
-        return;
+    if (articleIds.length > 0) {
+      console.log(`Found ${articleIds.length} articles to process`);
+      
+      // Step 3: Process articles in smaller batches to avoid overwhelming the system
+      const batchSize = 10; // Process 10 articles at a time
+      let processed = 0;
+      
+      for (let i = 0; i < articleIds.length; i += batchSize) {
+        const batch = articleIds.slice(i, Math.min(i + batchSize, articleIds.length));
+        try {
+          await processPoliticianDetectionBatch(batch);
+          processed += batch.length;
+          console.log(`Processed ${processed}/${articleIds.length} articles`);
+        } catch (error) {
+          console.error(`Error processing batch starting at article ${batch[0]}:`, error);
+          // Continue with next batch despite errors
+        }
       }
       
-      const articleIds = rows.map(row => row.id);
-      if (articleIds.length > 0) {
-        processBatchForPoliticianDetection(articleIds);
-      }
-    });
-  });
+      console.log(`Politician detection reset completed: ${processed}/${articleIds.length} articles processed`);
+    } else {
+      console.log('No articles found for reprocessing');
+    }
+  } catch (error) {
+    console.error('Error in reset-politicians process:', error);
+    // Response already sent, so we can't send an error response here
+  }
 });
+
+// Process a batch of articles for politician detection with proper error handling
+const processPoliticianDetectionBatch = async (articleIds) => {
+  if (!articleIds || articleIds.length === 0) return;
+  
+  console.log(`Processing batch of ${articleIds.length} articles for politician detection`);
+  
+  // Process each article in the batch sequentially to avoid race conditions
+  for (const articleId of articleIds) {
+    try {
+      // Get article from database
+      const article = await new Promise((resolve, reject) => {
+        db.get('SELECT * FROM articles WHERE id = ?', [articleId], (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+      
+      if (!article) {
+        console.error(`Article with ID ${articleId} not found`);
+        continue;
+      }
+      
+      console.log(`Processing enhanced politician detection for article ID: ${articleId}`);
+      
+      // Enhanced politician detection
+      const detectedPoliticians = await enhancedPoliticianDetection(article);
+      console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticians.join(', ') || 'None'}`);
+      
+      // Update mentions in database
+      await updatePoliticianMentions(articleId, detectedPoliticians);
+    } catch (error) {
+      console.error(`Error processing article ${articleId}:`, error);
+      // Continue with next article despite errors
+    }
+  }
+};
 
 // Get all articles with pagination
 app.get('/api/news', (req, res) => {
@@ -1902,6 +1972,78 @@ app.get('/api/debug/test-politician-detection', (req, res) => {
   } catch (error) {
     console.error('Error testing politician detection:', error);
     return res.status(500).json({ error: 'Error testing politician detection' });
+  }
+});
+
+// API endpoint to fix politician detection for a specific article (requires admin API key)
+app.post('/api/fix-politician-detection/:id', async (req, res) => {
+  // Check if API key is provided (simple auth)
+  const apiKey = req.headers['x-admin-api-key'] || req.query.apiKey;
+  if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized - Admin API key required' });
+  }
+  
+  const articleId = parseInt(req.params.id);
+  if (isNaN(articleId)) {
+    return res.status(400).json({ error: 'Invalid article ID' });
+  }
+  
+  try {
+    // Get article from database
+    const article = await new Promise((resolve, reject) => {
+      db.get('SELECT * FROM articles WHERE id = ?', [articleId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+    
+    if (!article) {
+      return res.status(404).json({ error: `Article with ID ${articleId} not found` });
+    }
+    
+    console.log(`Fixing politician detection for article ID: ${articleId}`);
+    console.log(`Title: ${article.title}`);
+    
+    // Clear existing politician mentions for this article
+    await new Promise((resolve, reject) => {
+      db.run('DELETE FROM politician_mentions WHERE articleId = ?', [articleId], (err) => {
+        if (err) {
+          console.error(`Error clearing politician mentions for article ${articleId}:`, err);
+          reject(err);
+        } else {
+          console.log(`Cleared existing politician mentions for article ${articleId}`);
+          resolve();
+        }
+      });
+    });
+    
+    // Run enhanced politician detection
+    const detectedPoliticians = await enhancedPoliticianDetection(article);
+    console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticians.join(', ') || 'None'}`);
+    
+    // Update mentions in database
+    await updatePoliticianMentions(articleId, detectedPoliticians);
+    
+    // Verify the update
+    const updatedMentions = await new Promise((resolve, reject) => {
+      db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(rows ? rows.map(row => row.politicianName) : []);
+        }
+      });
+    });
+    
+    return res.json({
+      message: `Politician detection fixed for article ${articleId}`,
+      before: article.mentionedPoliticians || [],
+      after: updatedMentions,
+      detectionResult: detectedPoliticians
+    });
+  } catch (error) {
+    console.error(`Error fixing politician detection for article ${articleId}:`, error);
+    return res.status(500).json({ error: `Failed to fix politician detection: ${error.message}` });
   }
 });
 
