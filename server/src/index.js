@@ -14,6 +14,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const config = require('./config');
 const { v4: uuidv4 } = require('uuid');
+const politicianDetectionAdapter = require('./politician-detection-adapter');
 
 // Initialize Groq client (conditionally)
 let groq = null;
@@ -206,16 +207,7 @@ const NEWS_SOURCES = [
 // Track last successful request time for each source
 const lastSuccessfulRequests = {};
 
-// Import politician detection module
-const politicianDetection = require('./politician-detection');
-
-// Load politicians from JSON file
-const politiciansPath = path.join(__dirname, '../../data/politicians/politicians.json');
-const POLITICIANS = politicianDetection.loadPoliticians(politiciansPath);
-
-// Log the number of politicians loaded for debugging
-console.log(`Loaded ${POLITICIANS.length} politicians for detection`);
-
+// Extract image URL from RSS item
 // Extract image URL from RSS item
 const extractImageUrl = (item) => {
   // First try to get from media:content (for feeds that use this format)
@@ -309,9 +301,9 @@ const extractCleanDescription = (item, source) => {
   return plainContent.length > 150 ? plainContent.substring(0, 147) + '...' : plainContent;
 };
 
-// Use findPoliticianMentions from the politicians module
+// Use findPoliticianMentions from the politician detection adapter
 const findPoliticianMentions = (text) => {
-  return politicianDetection.findPoliticianMentions(text, POLITICIANS);
+  return politicianDetectionAdapter.findPoliticianMentions(text);
 };
 
 // Helper function to check if a position is described as former in the text
@@ -456,129 +448,14 @@ function findAllOccurrences(text, subtext) {
   return indexes;
 }
 
-// Enhanced politician detection using our module
+// Enhanced politician detection using our adapter
 const enhancedPoliticianDetection = async (article) => {
-  return politicianDetection.enhancedPoliticianDetection(
-    article, 
-    POLITICIANS, 
-    scrapeArticleContent,
-    async (articleId, content) => {
-      await new Promise((resolve, reject) => {
-        db.run(
-          'UPDATE articles SET content = ? WHERE id = ?',
-          [content, article.id],
-          (err) => {
-            if (err) {
-              console.error(`Error updating article content:`, err);
-              reject(err);
-            } else {
-              console.log(`Updated content for article ${article.id} (${content.length} characters)`);
-              resolve();
-            }
-          }
-        );
-      });
-    }
-  );
+  return politicianDetectionAdapter.enhancedPoliticianDetection(article);
 };
 
 // Update politician mentions for an article
 const updatePoliticianMentions = async (articleId, politicians) => {
-  if (!articleId || !politicians || politicians.length === 0) return;
-  
-  try {
-    // First verify that the article exists
-    const articleExists = await new Promise((resolve, reject) => {
-      db.get('SELECT 1 FROM articles WHERE id = ?', [articleId], (err, row) => {
-        if (err) {
-          console.error(`Error checking if article ${articleId} exists:`, err);
-          reject(err);
-        } else {
-          resolve(!!row);
-        }
-      });
-    });
-    
-    if (!articleExists) {
-      console.error(`Cannot add politician mentions: Article with ID ${articleId} does not exist`);
-      return 0;
-    }
-    
-    // Get existing mentions for this article
-    const existingMentions = await new Promise((resolve, reject) => {
-      db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows ? rows.map(row => row.politicianName) : []);
-        }
-      });
-    });
-    
-    // Find new mentions to add
-    const newMentions = politicians.filter(p => !existingMentions.includes(p));
-    
-    if (newMentions.length > 0) {
-      // Use a transaction to ensure atomicity
-      return await new Promise((resolve, reject) => {
-        db.serialize(() => {
-          db.run('BEGIN TRANSACTION', (err) => {
-            if (err) {
-              console.error('Error starting transaction:', err);
-              return reject(err);
-            }
-            
-            // Create prepared statement for better safety
-            const stmt = db.prepare('INSERT INTO politician_mentions (articleId, politicianName) VALUES (?, ?)');
-            
-            let insertedCount = 0;
-            let errors = 0;
-            
-            // Use individual inserts with prepared statement instead of a batch insert
-            for (const politician of newMentions) {
-              stmt.run(articleId, politician, (err) => {
-                if (err) {
-                  console.error(`Error inserting politician mention ${politician} for article ${articleId}:`, err);
-                  errors++;
-                } else {
-                  insertedCount++;
-                }
-              });
-            }
-            
-            // Finalize the prepared statement
-            stmt.finalize();
-            
-            // Commit or rollback the transaction
-            if (errors > 0) {
-              db.run('ROLLBACK', (err) => {
-                if (err) {
-                  console.error('Error rolling back transaction:', err);
-                }
-                resolve(0); // Return 0 inserted if there were errors
-              });
-            } else {
-              db.run('COMMIT', (err) => {
-                if (err) {
-                  console.error('Error committing transaction:', err);
-                  db.run('ROLLBACK');
-                  resolve(0);
-                } else {
-                  console.log(`Added ${insertedCount} new politician mentions for article ${articleId}`);
-                  resolve(insertedCount);
-                }
-              });
-            }
-          });
-        });
-      });
-    }
-    
-    return 0;
-  } catch (error) {
-    console.error(`Error updating politician mentions: ${error.message}`);
-    return 0;
-  }
+  return politicianDetectionAdapter.updatePoliticianMentions(articleId, politicians);
 };
 
 // Scrape article content from URL
@@ -636,6 +513,19 @@ const scrapeArticleContent = async (url) => {
     return '';
   }
 };
+
+// Initialize the politician detection adapter
+politicianDetectionAdapter.initialize({
+  db: db,
+  scrapeContent: scrapeArticleContent
+});
+
+
+// Initialize the politician detection adapter
+politicianDetectionAdapter.initialize({
+  db: db,
+  scrapeContent: scrapeArticleContent
+});
 
 // Rate limiting for Groq API
 const groqRateLimit = {
@@ -1317,16 +1207,16 @@ const updateFeeds = async () => {
               };
               
               // Get relevance scores for all detected politicians
-              const scoredPoliticians = politicianDetection.scorePoliticianRelevance(
-                articleForScoring,
-                detectedPoliticians
+              const scoredPoliticians = politicianDetectionAdapter.scorePoliticianRelevance(
+                detectedPoliticians,
+                articleForScoring
               );
               
               // Get politicians to add to the database using relevance scoring logic
               // This will include either:
               // 1. All politicians that are deemed relevant (score > 0 and meets criteria), OR
               // 2. If no politicians are deemed relevant, up to 2 politicians with the highest scores (as long as > 0)
-              const relevantPoliticiansData = politicianDetection.getRelevantPoliticians(scoredPoliticians, {
+              const relevantPoliticiansData = politicianDetectionAdapter.getRelevantPoliticians(scoredPoliticians, {
                 minScore: 1, // Minimum score required to be included in the database
                 maxCount: 10 // Allow more politicians if they're relevant
               });
