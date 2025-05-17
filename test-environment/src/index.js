@@ -18,7 +18,7 @@ const fs = require('fs');
 const config = require('./config');
 
 // Import politician detection module
-const politicianDetection = require('./politician-detection');
+const { loadPoliticians, findPoliticianMentions } = require('../../src/politician-detection/politicianDetectionService');
 
 console.log('Starting server in TEST MODE');
 console.log(`Config: port=${config.port}, db=${config.db.path}, inMemory=${config.db.inMemory}`);
@@ -84,7 +84,7 @@ let POLITICIANS = [];
 try {
   const politiciansPath = config.politicians.path;
   if (fs.existsSync(politiciansPath)) {
-    POLITICIANS = politicianDetection.loadPoliticians(politiciansPath);
+    POLITICIANS = loadPoliticians(politiciansPath);
     console.log(`Loaded ${POLITICIANS.length} politicians for detection`);
   } else {
     console.warn(`Politicians file not found at ${politiciansPath}`);
@@ -126,7 +126,7 @@ app.post('/api/test/detect', (req, res) => {
     return res.status(400).json({ error: 'No text provided' });
   }
   
-  const detectedPoliticians = politicianDetection.findPoliticianMentions(text, POLITICIANS);
+  const detectedPoliticians = findPoliticianMentions(text, POLITICIANS);
   
   res.json({
     text,

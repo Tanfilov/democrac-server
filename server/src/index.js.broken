@@ -87,17 +87,7 @@ const parser = new Parser({
   }
 });
 
-// Initialize SQLite database
-const db = new sqlite3.Database(DB_PATH);
-
-// Enable foreign key constraints
-db.run('PRAGMA foreign_keys = ON', err => {
-  if (err) {
-    console.error('Error enabling foreign key constraints:', err);
-  } else {
-    console.log('Foreign key constraints enabled');
-  }
-});
+// Initialize SQLite databaseconst db = new sqlite3.Database(DB_PATH);// Enable foreign key constraintsdb.run('PRAGMA foreign_keys = ON', err => {  if (err) {    console.error('Error enabling foreign key constraints:', err);  } else {    console.log('Foreign key constraints enabled');  }});
 
 // Setup database tables
 const initDatabase = () => {
@@ -207,32 +197,14 @@ const NEWS_SOURCES = [
 const lastSuccessfulRequests = {};
 
 // Import politician detection module
-const { loadPoliticians, findPoliticianMentions, enhancedPoliticianDetection } = require('./politician-detection/politicianDetectionService');
+const politicianDetection = require('./politician-detection');
 
 // Load politicians from JSON file
 const politiciansPath = path.join(__dirname, '../../data/politicians/politicians.json');
-const POLITICIANS = loadPoliticians(politiciansPath);
+const POLITICIANS = politicianDetection.loadPoliticians(politiciansPath);
 
 // Log the number of politicians loaded for debugging
 console.log(`Loaded ${POLITICIANS.length} politicians for detection`);
-
-// Callback function to update article content in the DB, to be passed to enhancedPoliticianDetection
-const updateArticleContentInDbCallback = async (articleId, content) => {
-  return new Promise((resolve, reject) => {
-    db.run(
-      'UPDATE articles SET content = ? WHERE id = ?',
-      [content, articleId],
-      (err) => {
-        if (err) {
-          console.error(`Error updating article content for ID ${articleId}:`, err);
-          return reject(err);
-        }
-        console.log(`DB: Updated content for article ${articleId} (${content ? content.length : 0} characters)`);
-        resolve();
-      }
-    );
-  });
-};
 
 // Extract image URL from RSS item
 const extractImageUrl = (item) => {
@@ -327,104 +299,180 @@ const extractCleanDescription = (item, source) => {
   return plainContent.length > 150 ? plainContent.substring(0, 147) + '...' : plainContent;
 };
 
-// Update politician mentions for an article
-const updatePoliticianMentions = async (articleId, politicians) => {
-  if (!articleId || !politicians || politicians.length === 0) return;
-  
-  try {
-    // First verify that the article exists
-    const articleExists = await new Promise((resolve, reject) => {
-      db.get('SELECT 1 FROM articles WHERE id = ?', [articleId], (err, row) => {
-        if (err) {
-          console.error(`Error checking if article ${articleId} exists:`, err);
-          reject(err);
-        } else {
-          resolve(!!row);
-        }
-      });
-    });
-    
-    if (!articleExists) {
-      console.error(`Cannot add politician mentions: Article with ID ${articleId} does not exist`);
-      return 0;
-    }
-    
-    // Get existing mentions for this article
-    const existingMentions = await new Promise((resolve, reject) => {
-      db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows ? rows.map(row => row.politicianName) : []);
-        }
-      });
-    });
-    
-    // Find new mentions to add
-    const newMentions = politicians.filter(p => !existingMentions.includes(p));
-    
-    if (newMentions.length > 0) {
-      // Use a transaction to ensure atomicity
-      return await new Promise((resolve, reject) => {
-        db.serialize(() => {
-          db.run('BEGIN TRANSACTION', (err) => {
-            if (err) {
-              console.error('Error starting transaction:', err);
-              return reject(err);
-            }
-            
-            // Create prepared statement for better safety
-            const stmt = db.prepare('INSERT INTO politician_mentions (articleId, politicianName) VALUES (?, ?)');
-            
-            let insertedCount = 0;
-            let errors = 0;
-            
-            // Use individual inserts with prepared statement instead of a batch insert
-            for (const politician of newMentions) {
-              stmt.run(articleId, politician, (err) => {
-                if (err) {
-                  console.error(`Error inserting politician mention ${politician} for article ${articleId}:`, err);
-                  errors++;
-                } else {
-                  insertedCount++;
-                }
-              });
-            }
-            
-            // Finalize the prepared statement
-            stmt.finalize();
-            
-            // Commit or rollback the transaction
-            if (errors > 0) {
-              db.run('ROLLBACK', (err) => {
-                if (err) {
-                  console.error('Error rolling back transaction:', err);
-                }
-                resolve(0); // Return 0 inserted if there were errors
-              });
-            } else {
-              db.run('COMMIT', (err) => {
-                if (err) {
-                  console.error('Error committing transaction:', err);
-                  db.run('ROLLBACK');
-                  resolve(0);
-                } else {
-                  console.log(`Added ${insertedCount} new politician mentions for article ${articleId}`);
-                  resolve(insertedCount);
-                }
-              });
-            }
-          });
-        });
-      });
-    }
-    
-    return 0;
-  } catch (error) {
-    console.error(`Error updating politician mentions: ${error.message}`);
-    return 0;
-  }
+// Use findPoliticianMentions from the politicians module
+const findPoliticianMentions = (text) => {
+  return politicianDetection.findPoliticianMentions(text, POLITICIANS);
 };
+
+// Helper function to check if a position is described as former in the text
+function isPositionFormer(text, position) {
+  // Check if "לשעבר" appears after the position
+  const positionIndex = text.indexOf(position);
+  if (positionIndex >= 0) {
+    // Get the text after the position
+    const afterText = text.substring(positionIndex + position.length);
+    
+    // Case 1: "לשעבר" (former) appears immediately or with punctuation
+    if (afterText.trim().startsWith('לשעבר') || 
+        afterText.match(/^[ \t,.;:]+לשעבר/) ||
+        afterText.match(/^[ \t,.;:]+ה?לשעבר/)) {
+      return true;
+    }
+    
+    // Case 2: "הקודם" (previous/former) appears after the position
+    if (afterText.trim().startsWith('הקודם') || 
+        afterText.match(/^[ \t,.;:]+הקודם/)) {
+      return true;
+    }
+    
+    // Case 3: Reference to a specific government or past period
+    if (afterText.match(/בממשלת|בממשל/) ||
+        afterText.match(/הראשונה|השנייה|השלישית|הרביעית/) ||
+        afterText.match(/הקודמת|היוצאת|הזמנית/)) {
+      return true;
+    }
+    
+    // Case 4: Position "של" (of) someone else, indicating historical reference
+    if (afterText.match(/[ \t,.;:]*של[ \t]+[א-ת]/)) {
+      return true;
+    }
+    
+    // Case 5: Position followed by a name that's not the current position holder
+    // This is a more complex case that would require checking against current holders
+    // For now, we'll handle this through the other patterns
+  }
+  return false;
+}
+
+// Helper function to check if text contains required context for a politician
+function hasRequiredContext(text, politician, nameMatchIndex, nameLength) {
+  if (!politician.requiresContext || !politician.contextIdentifiers || politician.contextIdentifiers.length === 0) {
+    return true; // No context required
+  }
+  
+  // Define the window size (in characters) to look for context before and after the name
+  const windowSize = 200; // Look for context within 200 characters before and after the name
+  
+  // Get the window of text around the name
+  const startWindow = Math.max(0, nameMatchIndex - windowSize);
+  const endWindow = Math.min(text.length, nameMatchIndex + nameLength + windowSize);
+  
+  const textWindow = text.substring(startWindow, endWindow);
+  
+  // Check if any context identifiers appear in the window
+  const foundContext = politician.contextIdentifiers.some(context => {
+    const contextFound = textWindow.includes(context);
+    if (contextFound) {
+      console.log(`Found required context "${context}" near ${politician.name} at position ${nameMatchIndex}`);
+    }
+    return contextFound;
+  });
+  
+  if (!foundContext) {
+    console.log(`No required context found for ${politician.name} - context needed: [${politician.contextIdentifiers.join(', ')}]`);
+  }
+  
+  return foundContext;
+}
+
+// Helper function to check for exact word matches
+function isExactMatch(text, word, boundaries, politician = null) {
+  if (!text.includes(word)) return false;
+  
+  const indexes = findAllOccurrences(text, word);
+  
+  for (const index of indexes) {
+    const beforeChar = index === 0 ? ' ' : text[index - 1];
+    const afterChar = index + word.length >= text.length ? ' ' : text[index + word.length];
+    
+    // Standard boundary check
+    const isMatch = (boundaries.includes(beforeChar) || index === 0) && 
+                   (boundaries.includes(afterChar) || index + word.length === text.length);
+                   
+    if (isMatch) {
+      // If this politician requires context, check for it around this specific match
+      if (politician && politician.requiresContext) {
+        if (!hasRequiredContext(text, politician, index, word.length)) {
+          continue; // Skip this match as it doesn't have the required context
+        }
+      }
+      
+      return true;
+    }
+    
+    // Check if inside quotes - be more lenient with boundary check
+    if (isInsideQuotes(text, index, index + word.length)) {
+      const isSpaceOrBoundaryBefore = beforeChar === ' ' || boundaries.includes(beforeChar);
+      const isSpaceOrBoundaryAfter = afterChar === ' ' || boundaries.includes(afterChar);
+      
+      if (isSpaceOrBoundaryBefore && isSpaceOrBoundaryAfter) {
+        // If this politician requires context, check for it around this specific match
+        if (politician && politician.requiresContext) {
+          if (!hasRequiredContext(text, politician, index, word.length)) {
+            continue; // Skip this match as it doesn't have the required context
+          }
+        }
+        
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+// Helper to check if a position is inside quotes
+function isInsideQuotes(text, startPos, endPos) {
+  // Count quotes before position
+  let quoteCount = 0;
+  for (let i = 0; i < startPos; i++) {
+    if (text[i] === '"') quoteCount++;
+  }
+  
+  // If odd number of quotes before, we're inside quotes
+  return quoteCount % 2 === 1;
+}
+
+// Helper function to find all occurrences of a substring
+function findAllOccurrences(text, subtext) {
+  const indexes = [];
+  let index = text.indexOf(subtext);
+  
+  while (index !== -1) {
+    indexes.push(index);
+    index = text.indexOf(subtext, index + 1);
+  }
+  
+  return indexes;
+}
+
+// Enhanced politician detection using our module
+const enhancedPoliticianDetection = async (article) => {
+  return politicianDetection.enhancedPoliticianDetection(
+    article, 
+    POLITICIANS, 
+    scrapeArticleContent,
+    async (articleId, content) => {
+      await new Promise((resolve, reject) => {
+        db.run(
+          'UPDATE articles SET content = ? WHERE id = ?',
+          [content, article.id],
+          (err) => {
+            if (err) {
+              console.error(`Error updating article content:`, err);
+              reject(err);
+            } else {
+              console.log(`Updated content for article ${article.id} (${content.length} characters)`);
+              resolve();
+            }
+          }
+        );
+      });
+    }
+  );
+};
+
+// Update politician mentions for an articleconst updatePoliticianMentions = async (articleId, politicians) => {  if (!articleId || !politicians || politicians.length === 0) return;    try {    // Get existing mentions for this article    const existingMentions = await new Promise((resolve, reject) => {      db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {        if (err) {          reject(err);        } else {          resolve(rows ? rows.map(row => row.politicianName) : []);        }      });    });        // Find new mentions to add    const newMentions = politicians.filter(p => !existingMentions.includes(p));        if (newMentions.length > 0) {      // Begin a transaction      await new Promise((resolve, reject) => {        db.run('BEGIN TRANSACTION', (err) => {          if (err) {            console.error('Error starting transaction:', err);            reject(err);          } else {            resolve();          }        });      });            try {        // Use parameterized queries for each mention        for (const name of newMentions) {          await new Promise((resolve, reject) => {            db.run(              'INSERT INTO politician_mentions (articleId, politicianName) VALUES (?, ?)',              [articleId, name],              (err) => {                if (err) {                  console.error(`Error inserting politician mention "${name}":`, err);                  reject(err);                } else {                  resolve();                }              }            );          });        }                // Commit the transaction        await new Promise((resolve, reject) => {          db.run('COMMIT', (err) => {            if (err) {              console.error('Error committing transaction:', err);              reject(err);            } else {              console.log(`Added ${newMentions.length} new politician mentions for article ${articleId}`);              resolve();            }          });        });      } catch (error) {        // Rollback on error        await new Promise((resolve) => {          db.run('ROLLBACK', () => {            console.error('Transaction rolled back due to error:', error);            resolve();          });        });        throw error;      }    }        return newMentions.length;  } catch (error) {    console.error(`Error updating politician mentions: ${error.message}`);    return 0;  }};
 
 // Scrape article content from URL
 const scrapeArticleContent = async (url) => {
@@ -803,100 +851,30 @@ const insertArticle = (article, mentions) => {
   return new Promise((resolve, reject) => {
     const { title, description, content, link, imageUrl, source, publishedAt, guid, summary } = article;
     
-    // Use a transaction to ensure atomicity
-    db.serialize(() => {
-      db.run('BEGIN TRANSACTION', (err) => {
-        if (err) {
-          console.error('Error starting transaction:', err);
-          return reject(err);
-        }
+    db.run(
+      `INSERT OR IGNORE INTO articles (title, description, content, link, imageUrl, source, publishedAt, guid, createdAt, summary)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, description, content, link, imageUrl, source, publishedAt, guid, new Date().toISOString(), summary],
+      function(err) {
+        if (err) return reject(err);
         
-        // First insert the article
+        const articleId = this.lastID;
+        if (!articleId || mentions.length === 0) return resolve(articleId);
+        
+        // Insert all politician mentions
+        const mentionValues = mentions.map(name => 
+          `(${articleId}, '${name.replace(/'/g, "''")}')`
+        ).join(',');
+        
         db.run(
-          `INSERT OR IGNORE INTO articles (title, description, content, link, imageUrl, source, publishedAt, guid, createdAt, summary)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [title, description, content, link, imageUrl, source, publishedAt, guid, new Date().toISOString(), summary],
+          `INSERT INTO politician_mentions (articleId, politicianName) VALUES ${mentionValues}`,
           function(err) {
-            if (err) {
-              console.error('Error inserting article:', err);
-              db.run('ROLLBACK', () => reject(err));
-              return;
-            }
-            
-            const articleId = this.lastID;
-            
-            // If no article ID or no mentions, just commit and return
-            if (!articleId || mentions.length === 0) {
-              db.run('COMMIT', (commitErr) => {
-                if (commitErr) {
-                  console.error('Error committing transaction:', commitErr);
-                  db.run('ROLLBACK', () => reject(commitErr));
-                } else {
-                  resolve(articleId);
-                }
-              });
-              return;
-            }
-            
-            // Verify the article was actually inserted or already exists
-            db.get('SELECT id FROM articles WHERE guid = ?', [guid], (err, row) => {
-              if (err) {
-                console.error('Error finding inserted article:', err);
-                db.run('ROLLBACK', () => reject(err));
-                return;
-              }
-              
-              // If article exists (either newly inserted or pre-existing), use its ID
-              const resolvedArticleId = row ? row.id : articleId;
-              if (!resolvedArticleId) {
-                console.error('Failed to determine article ID');
-                db.run('ROLLBACK', () => reject(new Error('Failed to determine article ID')));
-                return;
-              }
-              
-              // Create a prepared statement for politician mentions
-              const stmt = db.prepare('INSERT OR IGNORE INTO politician_mentions (articleId, politicianName) VALUES (?, ?)');
-              
-              let insertedCount = 0;
-              let errors = 0;
-              
-              // Insert each politician mention separately with error handling
-              for (const politician of mentions) {
-                stmt.run(resolvedArticleId, politician, (err) => {
-                  if (err) {
-                    console.error(`Error inserting politician mention for article ${resolvedArticleId}:`, err);
-                    errors++;
-                  } else {
-                    insertedCount++;
-                  }
-                });
-              }
-              
-              // Finalize the prepared statement
-              stmt.finalize();
-              
-              // Commit or rollback based on results
-              if (errors > 0) {
-                console.error(`Encountered ${errors} errors while inserting politician mentions`);
-                db.run('ROLLBACK', () => {
-                  reject(new Error('Failed to insert politician mentions'));
-                });
-              } else {
-                db.run('COMMIT', (commitErr) => {
-                  if (commitErr) {
-                    console.error('Error committing transaction:', commitErr);
-                    db.run('ROLLBACK', () => reject(commitErr));
-                  } else {
-                    console.log(`Successfully inserted article ID ${resolvedArticleId} with ${insertedCount} politician mentions`);
-                    resolve(resolvedArticleId);
-                  }
-                });
-              }
-            });
+            if (err) return reject(err);
+            resolve(articleId);
           }
         );
-      });
-    });
+      }
+    );
   });
 };
 
@@ -906,66 +884,147 @@ const processBatchForPoliticianDetection = async (articleIds, maxBatchSize = 5) 
   
   console.log(`Processing batch of ${articleIds.length} articles for politician detection`);
   
-  let successCount = 0;
-  let failureCount = 0;
-  
-  // Process each article in the batch sequentially to avoid race conditions
-  for (const articleId of articleIds) {
-    try {
-      // Check if article exists before processing
-      const articleExists = await new Promise((resolve, reject) => {
-        db.get('SELECT id, title FROM articles WHERE id = ?', [articleId], (err, row) => {
-          if (err) {
-            console.error(`Error checking if article ${articleId} exists:`, err);
-            reject(err);
-          } else {
-            resolve(row);
+  // Process in smaller batches to avoid overwhelming the system
+  for (let i = 0; i < articleIds.length; i += maxBatchSize) {
+    const batch = articleIds.slice(i, i + maxBatchSize);
+    
+    // Process each article in the batch concurrently
+    await Promise.all(
+      batch.map(async (articleId) => {
+        try {
+          // Get article from database
+          const article = await new Promise((resolve, reject) => {
+            db.get('SELECT * FROM articles WHERE id = ?', [articleId], (err, row) => {
+              if (err) reject(err);
+              else resolve(row);
+            });
+          });
+          
+          if (!article) {
+            console.error(`Article with ID ${articleId} not found`);
+            return;
           }
-        });
-      });
-      
-      if (!articleExists) {
-        console.error(`Article with ID ${articleId} not found, skipping detection`);
-        failureCount++;
-        continue;
-      }
-      
-      console.log(`Processing enhanced politician detection for article ID: ${articleId} - "${articleExists.title?.substring(0, 30)}..."`);
-      
-      // First clear existing mentions to avoid duplicates
-      await new Promise((resolve, reject) => {
-        db.run('DELETE FROM politician_mentions WHERE articleId = ?', [articleId], (err) => {
-          if (err) {
-            console.error(`Error clearing existing politician mentions for article ${articleId}:`, err);
-            reject(err);
-          } else {
-            resolve();
+          
+          console.log(`Processing enhanced politician detection for article ID: ${articleId}`);
+          
+          // Enhanced politician detection
+          const detectedPoliticians = await enhancedPoliticianDetection(article);
+          
+          // Apply relevance scoring to filter only relevant politicians
+          if (detectedPoliticians.length > 0) {
+            // Create article object for relevance scoring
+            const articleForScoring = {
+              title: article.title || '',
+              description: article.description || '',
+              content: article.content || ''
+            };
+            
+            // Get relevance scores for all detected politicians
+            const scoredPoliticians = politicianDetection.scorePoliticianRelevance(
+              articleForScoring,
+              detectedPoliticians
+            );
+            
+            // Get politicians to add to the database using relevance scoring logic
+            // This will include either:
+            // 1. All politicians that are deemed relevant (score > 0 and meets criteria), OR
+            // 2. If no politicians are deemed relevant, up to 2 politicians with the highest scores (as long as > 0)
+            const relevantPoliticiansData = politicianDetection.getRelevantPoliticians(scoredPoliticians, {
+              minScore: 1, // Minimum score required to be included in the database
+              maxCount: 10 // Allow more politicians if they're relevant
+            });
+            
+            // Extract just the politician names
+            const relevantPoliticians = relevantPoliticiansData.map(p => p.name);
+            
+            console.log(`Article ${articleId}: ${detectedPoliticians.length} politicians detected, ${relevantPoliticians.length} relevant politicians after scoring`);
+            
+            // See if we're using the backup mechanism
+            const primaryRelevantCount = scoredPoliticians.filter(p => p.isRelevant).length;
+            if (primaryRelevantCount === 0 && relevantPoliticians.length > 0) {
+              console.log(`Article ${articleId}: Using backup relevance mechanism - no primary relevant politicians found, using top ${relevantPoliticians.length} scored politicians`);
+            }
+            
+            // Update the article's politician mentions (using the filtered list)
+            if (relevantPoliticians.length > 0) {
+              const addedCount = await updatePoliticianMentions(articleId, relevantPoliticians);
+              if (addedCount > 0) {
+                console.log(`Added ${addedCount} new politician mentions for article ${articleId}`);
+              }
+            }
           }
-        });
-      });
-      
-      // Enhanced politician detection
-      const detectedPoliticians = await enhancedPoliticianDetection(articleExists, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
-      console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticians.join(', ') || 'None'}`);
-      
-      // Update mentions in database
-      const updatedCount = await updatePoliticianMentions(articleId, detectedPoliticians);
-      
-      if (updatedCount > 0 || detectedPoliticians.length === 0) {
-        successCount++;
-      } else if (detectedPoliticians.length > 0 && updatedCount === 0) {
-        console.warn(`Warning: Detected ${detectedPoliticians.length} politicians for article ${articleId} but none were saved`);
-        failureCount++;
-      }
-    } catch (error) {
-      console.error(`Error processing article ${articleId}:`, error);
-      failureCount++;
-      // Continue with next article despite errors
+          
+          // TEMPORARILY DISABLED: Summarization
+          /* 
+          let articleContent = article.content;
+          if (!articleContent || articleContent.length < 200) {
+            const scrapedContent = await scrapeArticleContent(article.link);
+            if (scrapedContent) {
+              articleContent = scrapedContent;
+              
+              // Update the article with scraped content
+              await new Promise((resolve, reject) => {
+                db.run('UPDATE articles SET content = ? WHERE id = ?', [scrapedContent, articleId], (err) => {
+                  if (err) reject(err);
+                  else resolve();
+                });
+              });
+            }
+          }
+          
+          // Generate summary
+          const result = await summarizeArticle(articleContent, article.title);
+          
+          // Update the article with the summary
+          if (result.summary) {
+            await new Promise((resolve, reject) => {
+              db.run('UPDATE articles SET summary = ? WHERE id = ?', [result.summary, articleId], (err) => {
+                if (err) reject(err);
+                else resolve();
+              });
+            });
+            
+            // Add any new politician mentions
+            if (result.mentionedPoliticians && result.mentionedPoliticians.length > 0) {
+              // Get existing mentions
+              const existingMentions = await new Promise((resolve, reject) => {
+                db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
+                  if (err) reject(err);
+                  else resolve(rows ? rows.map(row => row.politicianName) : []);
+                });
+              });
+              
+              const newMentions = result.mentionedPoliticians.filter(p => !existingMentions.includes(p));
+              
+              if (newMentions.length > 0) {
+                const mentionValues = newMentions.map(name => 
+                  `(${articleId}, '${name.replace(/'/g, "''")}')`
+                ).join(',');
+                
+                await new Promise((resolve, reject) => {
+                  db.run(
+                    `INSERT INTO politician_mentions (articleId, politicianName) VALUES ${mentionValues}`,
+                    (err) => {
+                      if (err) reject(err);
+                      else resolve();
+                    }
+                  );
+                });
+              }
+            }
+          }
+          */
+        } catch (error) {
+          console.error(`Error processing article ${articleId} for politician detection:`, error);
+        }
+      })
+    );
+    
+    // Add a small delay between batches to avoid overwhelming the system
+    if (i + maxBatchSize < articleIds.length) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
-  
-  console.log(`Batch processing complete: ${successCount} successful, ${failureCount} failed out of ${articleIds.length} total`);
-  return { successCount, failureCount, totalCount: articleIds.length };
 };
 
 // Fetch RSS feed with fallback support and rate limiting
@@ -1149,7 +1208,7 @@ const updateFeeds = async () => {
             };
             
             // Initial simple politician detection
-            const detectedPoliticians = findPoliticianMentions(article.title + ' ' + article.description + ' ' + article.content, POLITICIANS);
+            const detectedPoliticians = findPoliticianMentions(article.title + ' ' + article.description + ' ' + article.content);
             
             // Apply relevance scoring to filter only relevant politicians
             let relevantPoliticians = [];
@@ -1246,7 +1305,7 @@ app.post('/api/summarize/:id', async (req, res) => {
       console.log(`Running enhanced politician detection for article ID: ${articleId}`);
       
       // Run enhanced politician detection
-      const detectedPoliticians = await enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
+      const detectedPoliticians = await enhancedPoliticianDetection(article);
       
       // Update the article's politician mentions
       const addedCount = await updatePoliticianMentions(articleId, detectedPoliticians);
@@ -1422,142 +1481,41 @@ app.post('/api/clear', (req, res) => {
 });
 
 // API endpoint to clear all politician mentions (requires admin API key)
-app.post('/api/reset-politicians', async (req, res) => {
+app.post('/api/reset-politicians', (req, res) => {
   // Check if API key is provided (simple auth)
   const apiKey = req.headers['x-admin-api-key'] || req.query.apiKey;
   if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
     return res.status(401).json({ error: 'Unauthorized - Admin API key required' });
   }
   
-  console.log('Starting politician mentions reset process...');
+  console.log('Clearing all politician mentions...');
   
-  try {
-    // Step 1: Delete all politician mentions
-    await new Promise((resolve, reject) => {
-      console.log('Clearing all politician mentions...');
-      db.run('DELETE FROM politician_mentions', (err) => {
-        if (err) {
-          console.error('Error clearing politician mentions:', err);
-          reject(err);
-        } else {
-          console.log('All politician mentions cleared successfully');
-          resolve();
-        }
-      });
-    });
+  // Delete all politician mentions
+  db.run('DELETE FROM politician_mentions', (err) => {
+    if (err) {
+      console.error('Error clearing politician mentions:', err);
+      return res.status(500).json({ error: 'Failed to clear politician mentions' });
+    }
     
-    // Send immediate response that deletion was successful
     res.json({ message: 'All politician mentions cleared successfully' });
     
-    // Step 2: Get all article IDs
+    // Start reprocessing all articles to detect politicians with the improved algorithm
     console.log('Re-processing all articles for politician detection...');
-    const articleIds = await new Promise((resolve, reject) => {
-      db.all('SELECT id FROM articles ORDER BY id', [], (err, rows) => {
-        if (err) {
-          console.error('Error fetching articles for reprocessing:', err);
-          reject(err);
-        } else {
-          resolve(rows.map(row => row.id));
-        }
-      });
-    });
     
-    if (articleIds.length > 0) {
-      console.log(`Found ${articleIds.length} articles to process`);
-      
-      // Step 3: Process articles in smaller batches to avoid overwhelming the system
-      const batchSize = 10; // Process 10 articles at a time
-      let processed = 0;
-      
-      for (let i = 0; i < articleIds.length; i += batchSize) {
-        const batch = articleIds.slice(i, Math.min(i + batchSize, articleIds.length));
-        try {
-          await processPoliticianDetectionBatch(batch);
-          processed += batch.length;
-          console.log(`Processed ${processed}/${articleIds.length} articles`);
-        } catch (error) {
-          console.error(`Error processing batch starting at article ${batch[0]}:`, error);
-          // Continue with next batch despite errors
-        }
+    // Get all article IDs
+    db.all('SELECT id FROM articles', [], (err, rows) => {
+      if (err) {
+        console.error('Error fetching articles for reprocessing:', err);
+        return;
       }
       
-      console.log(`Politician detection reset completed: ${processed}/${articleIds.length} articles processed`);
-    } else {
-      console.log('No articles found for reprocessing');
-    }
-  } catch (error) {
-    console.error('Error in reset-politicians process:', error);
-    // Response already sent, so we can't send an error response here
-  }
+      const articleIds = rows.map(row => row.id);
+      if (articleIds.length > 0) {
+        processBatchForPoliticianDetection(articleIds);
+      }
+    });
+  });
 });
-
-// Process a batch of articles for politician detection with proper error handling
-const processPoliticianDetectionBatch = async (articleIds) => {
-  if (!articleIds || articleIds.length === 0) return;
-  
-  console.log(`Processing batch of ${articleIds.length} articles for politician detection`);
-  
-  let successCount = 0;
-  let failureCount = 0;
-  
-  // Process each article in the batch sequentially to avoid race conditions
-  for (const articleId of articleIds) {
-    try {
-      // Check if article exists before processing
-      const articleExists = await new Promise((resolve, reject) => {
-        db.get('SELECT id, title FROM articles WHERE id = ?', [articleId], (err, row) => {
-          if (err) {
-            console.error(`Error checking if article ${articleId} exists:`, err);
-            reject(err);
-          } else {
-            resolve(row);
-          }
-        });
-      });
-      
-      if (!articleExists) {
-        console.error(`Article with ID ${articleId} not found, skipping detection`);
-        failureCount++;
-        continue;
-      }
-      
-      console.log(`Processing enhanced politician detection for article ID: ${articleId} - "${articleExists.title?.substring(0, 30)}..."`);
-      
-      // First clear existing mentions to avoid duplicates
-      await new Promise((resolve, reject) => {
-        db.run('DELETE FROM politician_mentions WHERE articleId = ?', [articleId], (err) => {
-          if (err) {
-            console.error(`Error clearing existing politician mentions for article ${articleId}:`, err);
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
-      
-      // Enhanced politician detection
-      const detectedPoliticians = await enhancedPoliticianDetection(articleExists, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
-      console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticians.join(', ') || 'None'}`);
-      
-      // Update mentions in database
-      const updatedCount = await updatePoliticianMentions(articleId, detectedPoliticians);
-      
-      if (updatedCount > 0 || detectedPoliticians.length === 0) {
-        successCount++;
-      } else if (detectedPoliticians.length > 0 && updatedCount === 0) {
-        console.warn(`Warning: Detected ${detectedPoliticians.length} politicians for article ${articleId} but none were saved`);
-        failureCount++;
-      }
-    } catch (error) {
-      console.error(`Error processing article ${articleId}:`, error);
-      failureCount++;
-      // Continue with next article despite errors
-    }
-  }
-  
-  console.log(`Batch processing complete: ${successCount} successful, ${failureCount} failed out of ${articleIds.length} total`);
-  return { successCount, failureCount, totalCount: articleIds.length };
-};
 
 // Get all articles with pagination
 app.get('/api/news', (req, res) => {
@@ -1861,7 +1819,7 @@ app.get('/api/debug/test-politician-detection', (req, res) => {
     const results = testTexts.map(text => {
       return {
         text: text,
-        detectedPoliticians: findPoliticianMentions(text, POLITICIANS)
+        detectedPoliticians: findPoliticianMentions(text)
       };
     });
     
@@ -1887,78 +1845,6 @@ app.get('/api/debug/test-politician-detection', (req, res) => {
   } catch (error) {
     console.error('Error testing politician detection:', error);
     return res.status(500).json({ error: 'Error testing politician detection' });
-  }
-});
-
-// API endpoint to fix politician detection for a specific article (requires admin API key)
-app.post('/api/fix-politician-detection/:id', async (req, res) => {
-  // Check if API key is provided (simple auth)
-  const apiKey = req.headers['x-admin-api-key'] || req.query.apiKey;
-  if (!apiKey || apiKey !== process.env.ADMIN_API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized - Admin API key required' });
-  }
-  
-  const articleId = parseInt(req.params.id);
-  if (isNaN(articleId)) {
-    return res.status(400).json({ error: 'Invalid article ID' });
-  }
-  
-  try {
-    // Get article from database
-    const article = await new Promise((resolve, reject) => {
-      db.get('SELECT * FROM articles WHERE id = ?', [articleId], (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      });
-    });
-    
-    if (!article) {
-      return res.status(404).json({ error: `Article with ID ${articleId} not found` });
-    }
-    
-    console.log(`Fixing politician detection for article ID: ${articleId}`);
-    console.log(`Title: ${article.title}`);
-    
-    // Clear existing politician mentions for this article
-    await new Promise((resolve, reject) => {
-      db.run('DELETE FROM politician_mentions WHERE articleId = ?', [articleId], (err) => {
-        if (err) {
-          console.error(`Error clearing politician mentions for article ${articleId}:`, err);
-          reject(err);
-        } else {
-          console.log(`Cleared existing politician mentions for article ${articleId}`);
-          resolve();
-        }
-      });
-    });
-    
-    // Run enhanced politician detection
-    const detectedPoliticians = await enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
-    console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticians.join(', ') || 'None'}`);
-    
-    // Update mentions in database
-    await updatePoliticianMentions(articleId, detectedPoliticians);
-    
-    // Verify the update
-    const updatedMentions = await new Promise((resolve, reject) => {
-      db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows ? rows.map(row => row.politicianName) : []);
-        }
-      });
-    });
-    
-    return res.json({
-      message: `Politician detection fixed for article ${articleId}`,
-      before: article.mentionedPoliticians || [],
-      after: updatedMentions,
-      detectionResult: detectedPoliticians
-    });
-  } catch (error) {
-    console.error(`Error fixing politician detection for article ${articleId}:`, error);
-    return res.status(500).json({ error: `Failed to fix politician detection: ${error.message}` });
   }
 });
 

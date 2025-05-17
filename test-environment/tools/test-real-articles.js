@@ -9,8 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const Parser = require('rss-parser');
 const { htmlToText } = require('html-to-text');
-const politicianDetection = require('../src/politician-detection');
-const relevanceScoring = require('../src/politician-detection/relevance-scoring');
+const { loadPoliticians, enhancedPoliticianDetection } = require('../../src/politician-detection/politicianDetectionService');
 const { exec } = require('child_process');
 const os = require('os');
 
@@ -23,26 +22,19 @@ const MAX_CONTENT_WORDS = 100;
 // Maximum number of articles with the same politician
 const MAX_ARTICLES_PER_POLITICIAN = 5;
 
+// Mock functions for enhancedPoliticianDetection dependencies
+const mockScrapeArticleContent = async (url) => { 
+  console.log(`Mock scrape called for: ${url}`); 
+  return "Default mock article content. Netanyahu said something. Lapid responded."; 
+};
+const mockUpdateArticleContentInDb = async (articleId, content) => { 
+  console.log(`Mock DB update called for article ID ${articleId} with content length ${content ? content.length : 0}`);
+  return Promise.resolve();
+};
+
 // Load the politicians data
-function loadPoliticians() {
-  try {
-    const politiciansPath = path.join(__dirname, '../data/politicians/politicians.json');
-    if (fs.existsSync(politiciansPath)) {
-      return politicianDetection.loadPoliticians(politiciansPath);
-    }
-    
-    // Fall back to the real data
-    const politiciansPath2 = path.join(__dirname, '../../data/politicians/politicians.json');
-    if (fs.existsSync(politiciansPath2)) {
-      return politicianDetection.loadPoliticians(politiciansPath2);
-    }
-    
-    throw new Error('No politicians data found');
-  } catch (error) {
-    console.error('Error loading politicians:', error.message);
-    return [];
-  }
-}
+const POLITICIANS_FILE_PATH = path.join(__dirname, '../../../data/politicians/politicians.json');
+const politicians = loadPoliticians(POLITICIANS_FILE_PATH);
 
 // Truncate content to a specified number of words
 function truncateWords(text, maxWords) {
@@ -55,60 +47,46 @@ function truncateWords(text, maxWords) {
 }
 
 // Highlight politicians in text - SIMPLIFIED VERSION
-function highlightPoliticians(text, politicians) {
-  if (!text || !politicians || politicians.length === 0) return text;
+function highlightPoliticians(text, politiciansToHighlight) {
+  if (!text || !politiciansToHighlight || politiciansToHighlight.length === 0) return text;
   
   let result = text;
-  
-  // Define the highlight style
   const highlightStyle = 'background-color: #ffcc00; color: #000000; font-weight: bold; padding: 2px 4px; border-radius: 3px; display: inline-block; border: 1px solid #e6b800;';
   
-  // Sort politicians by length (descending) to ensure longer names are highlighted first
-  const sortedPoliticians = [...politicians].sort((a, b) => b.length - a.length);
+  const sortedPoliticians = [...politiciansToHighlight].sort((a, b) => {
+    const nameA = typeof a === 'string' ? a : a.name;
+    const nameB = typeof b === 'string' ? b : b.name;
+    if (!nameA && !nameB) return 0;
+    if (!nameA) return 1;
+    if (!nameB) return -1;
+    return nameB.length - nameA.length;
+  });
   
-  // Simple highlight each politician with inline style
-  for (const politician of sortedPoliticians) {
-    const replacement = `<span style="${highlightStyle}">${politician}</span>`;
-    
-    // Use a more robust regular expression to match names in different contexts
-    // This matches the politician name when it appears at the start of text, after various punctuation,
-    // with word boundaries, or in specific preposition contexts (like "של X")
-    // Looking for the name with common Hebrew prepositions "של", "עם", "על", etc.
+  for (const p of sortedPoliticians) {
+    const politicianName = typeof p === 'string' ? p : p.name;
+    if (!politicianName) continue;
+    const replacement = `<span style="${highlightStyle}">${politicianName}</span>`;
     const commonPrepositions = ['של', 'עם', 'על', 'את', 'מול', 'בין', 'לפי', 'כמו'];
-    
-    // First handle the standalone name with word boundaries
-    const standaloneRegex = new RegExp(`(^|\\s|["'\`.,;:!?()[\\]{}])${escapeRegExp(politician)}(?=$|\\s|["'\`.,;:!?()[\\]{}])`, 'g');
+    const standaloneRegex = new RegExp(`(^|\\s|["'\`.,;:!?()[\\]{}])${escapeRegExp(politicianName)}(?=$|\\s|["'\`.,;:!?()[\\]{}])`, 'g');
     result = result.replace(standaloneRegex, (match, prefix) => {
       return prefix + replacement;
     });
-    
-    // Then handle common preposition forms (של נתניהו, את נתניהו, etc.)
     for (const preposition of commonPrepositions) {
-      const prepositionRegex = new RegExp(`(\\s|^)(${preposition}\\s+)${escapeRegExp(politician)}(?=$|\\s|["'\`.,;:!?()[\\]{}])`, 'g');
+      const prepositionRegex = new RegExp(`(\\s|^)(${preposition}\\s+)${escapeRegExp(politicianName)}(?=$|\\s|["'\`.,;:!?()[\\]{}])`, 'g');
       result = result.replace(prepositionRegex, (match, prefix, prepositionText) => {
-        return `${prefix}${prepositionText}<span style="${highlightStyle}">${politician}</span>`;
+        return `${prefix}${prepositionText}${replacement}`;
       });
     }
   }
-  
-  // Handle special compound cases
-  const compounds = [
-    'לפיד ונתניהו',
-    'נתניהו ולפיד',
-    'לפיד לנתניהו'
-  ];
-  
+  // Handle special compound cases if necessary (this part might need review based on actual politician names)
+  const compounds = ['לפיד ונתניהו', 'נתניהו ולפיד', 'לפיד לנתניהו'];
   for (const compound of compounds) {
     if (result.includes(compound)) {
-      // Simple direct replacement for compound phrases
       const plainText = compound;
       const highlighted = `<span style="${highlightStyle}">${compound}</span>`;
-      
-      // Replace instances that aren't already highlighted
       result = result.replace(new RegExp(escapeRegExp(plainText), 'g'), highlighted);
     }
   }
-  
   return result;
 }
 
@@ -119,93 +97,60 @@ function escapeRegExp(string) {
 
 // Process articles from captured RSS feeds
 async function processRealArticles() {
-  // Load politicians
-  const politicians = loadPoliticians();
   console.log(`Loaded ${politicians.length} politicians for testing`);
-  
-  // Check captured feeds directory
   const capturedFeedsDir = path.join(__dirname, '../data/captured-feeds');
   if (!fs.existsSync(capturedFeedsDir)) {
     console.error('No captured feeds directory found. Run the capture-feeds.js script first.');
     return;
   }
-  
-  // Get all feed files
   const files = fs.readdirSync(capturedFeedsDir);
   const feedFiles = files.filter(file => file.endsWith('.xml'));
-  
   if (feedFiles.length === 0) {
     console.error('No feed files found. Run the capture-feeds.js script first.');
     return;
   }
-  
   console.log(`Found ${feedFiles.length} captured feed files`);
-  
-  // Initialize RSS parser
   const parser = new Parser({
-    customFields: {
-      item: ['media:content', 'description', 'pubDate', 'content']
-    }
+    customFields: { item: ['media:content', 'description', 'pubDate', 'content'] }
   });
-  
-  // Array to store all candidate articles
   const candidateArticles = [];
-  
-  // Process each feed file to collect candidate articles
   for (const file of feedFiles) {
     const feedPath = path.join(capturedFeedsDir, file);
     console.log(`Processing feed: ${file}`);
-    
     try {
-      // Parse the feed
       const feedContent = fs.readFileSync(feedPath, 'utf8');
       const feed = await parser.parseString(feedContent);
       console.log(`Feed: ${feed.title || file} with ${feed.items.length} articles`);
-      
-      // Process each item
       for (const item of feed.items) {
-        // Extract clean text
         const title = item.title || '';
         const description = item.description ? htmlToText(item.description, { wordwrap: false }) : '';
-        const content = item.content ? htmlToText(item.content, { wordwrap: false }) : 
-                       (item.contentSnippet ? item.contentSnippet : '');
-        
-        // Skip articles without meaningful content
+        const content = item.content ? htmlToText(item.content, { wordwrap: false }) : (item.contentSnippet ? item.contentSnippet : '');
         if (title.length < 5 || (content.length < 20 && description.length < 20)) {
           continue;
         }
-        
-        // Detect politicians in the full text (title + description + content)
-        const fullText = `${title} ${description} ${content}`;
-        let detectedPoliticians = [...politicianDetection.findPoliticianMentions(fullText, politicians)];
-        
-        // Create a stable article ID based on content hash
-        const articleId = generateStableArticleId(title, description);
-        
-        // Special handling for specific articles by stable ID
-        if (articleId === generateStableArticleId('נתניהו סיים "סדרת שיחות ממושכות" עם וויט האוס', '')) {
-          // Add Trump if not already included
-          if (!detectedPoliticians.includes('טראמפ')) {
-            detectedPoliticians.push('טראמפ');
-          }
-          
-          // Remove Herzog if it was mistakenly detected
-          detectedPoliticians = detectedPoliticians.filter(p => p !== 'הרצוג');
-        }
-        
-        // Skip articles where no politicians were detected
+        const articleForDetection = {
+            id: generateStableArticleId(title, description),
+            title: title,
+            description: description,
+            content: content, 
+            link: item.link || ''
+        };
+        const detectedPoliticians = await enhancedPoliticianDetection(
+            articleForDetection, 
+            politicians, 
+            mockScrapeArticleContent, 
+            mockUpdateArticleContentInDb
+        );
         if (detectedPoliticians.length === 0) {
           continue;
         }
-        
-        // Add to candidate articles
         candidateArticles.push({
-          articleId, // Store the stable ID
+          articleId: articleForDetection.id,
           title,
           description,
           content: truncateWords(content, MAX_CONTENT_WORDS),
-          detectedPoliticians,
-          relevantPoliticians: [], // Will be populated after selection
+          detectedPoliticians, 
+          relevantPoliticians: detectedPoliticians, // Service handles relevance
           source: feed.title || file,
           date: item.pubDate ? new Date(item.pubDate).toLocaleDateString('he-IL') : 'לא ידוע'
         });
@@ -214,67 +159,15 @@ async function processRealArticles() {
       console.error(`Error processing feed ${file}:`, error);
     }
   }
-  
   console.log(`Found ${candidateArticles.length} candidate articles with politicians`);
-  
   if (candidateArticles.length === 0) {
     console.error('No articles with politicians found.');
     return;
   }
-  
-  // Select diverse articles based on politicians
   const selectedArticles = selectDiverseArticles(candidateArticles, MAX_ARTICLES, MAX_ARTICLES_PER_POLITICIAN);
   console.log(`Selected ${selectedArticles.length} diverse articles for the report`);
-  
-  // Score politicians by relevance in selected articles
-  console.log(`Scoring politicians by relevance in ${selectedArticles.length} articles...`);
-  selectedArticles.forEach(article => {
-    // Create article object for relevance scoring
-    const articleForScoring = {
-      title: article.title || '',
-      description: article.description || '',
-      content: article.content || ''
-    };
-    
-    // Get relevance scores
-    const scoredPoliticians = relevanceScoring.scorePoliticianRelevance(
-      articleForScoring, 
-      article.detectedPoliticians
-    );
-    
-    // Get the most relevant politicians
-    const relevantPoliticians = relevanceScoring.getRelevantPoliticians(scoredPoliticians, {
-      threshold: 5, // Minimum score to consider relevant
-      maxCount: 5   // Maximum number of politicians to show
-    });
-    
-    // Store the relevant politicians with scores
-    article.relevantPoliticians = relevantPoliticians;
-    
-    // Log relevance information
-    console.log(`Article "${article.title.substring(0, 40)}..."`);
-    console.log(`  Detected: ${article.detectedPoliticians.length} politicians`);
-    console.log(`  Relevant: ${article.relevantPoliticians.length} politicians`);
-    article.relevantPoliticians.forEach(p => {
-      console.log(`    - ${p.name} (score: ${p.score})`);
-    });
-  });
-  
-  // Generate and save HTML report
-  const html = generateHtmlReport(selectedArticles);
-  const outputPath = path.join(__dirname, '../data/real-articles-report.html');
-  fs.writeFileSync(outputPath, html, 'utf8');
-  
-  console.log(`HTML report generated at: ${outputPath}`);
-  
-  // Open the report in the default browser
-  try {
-    openFileInBrowser(outputPath);
-  } catch (err) {
-    console.log('Could not open report automatically. Please open it manually.');
-  }
-  
-  return outputPath;
+  const reportPath = await generateHtmlReport(selectedArticles, politicians);
+  openFileInBrowser(reportPath);
 }
 
 // Generate a stable article ID based on content hash
@@ -399,182 +292,84 @@ function openFileInBrowser(filePath) {
 }
 
 // Generate HTML report
-function generateHtmlReport(articles) {
-  const html = `
-<!DOCTYPE html>
-<html dir="rtl" lang="he">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>דוח זיהוי פוליטיקאים במאמרים אמיתיים</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      line-height: 1.6;
-      margin: 20px;
-      background-color: #f5f5f5;
-    }
-    h1 {
-      color: #003366;
-      text-align: center;
-      margin-bottom: 30px;
-    }
-    h2 {
-      color: #003366;
-      margin-top: 30px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-bottom: 30px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      background-color: white;
-      table-layout: fixed;
-    }
-    th, td {
-      padding: 12px 15px;
-      border: 1px solid #ddd;
-      text-align: right;
-      vertical-align: top;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-    th {
-      background-color: #003366;
-      color: white;
-      position: sticky;
-      top: 0;
-    }
-    tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-    tr:hover {
-      background-color: #f1f1f1;
-    }
-    .id-cell {
-      width: 5%;
-      text-align: center;
-      font-weight: bold;
-    }
-    .article-id-cell {
-      width: 10%;
-      font-family: monospace;
-      text-align: center;
-    }
-    .politician-cell {
-      width: 15%;
-    }
-    .title-cell {
-      width: 20%;
-    }
-    .description-cell {
-      width: 20%;
-    }
-    .content-cell {
-      width: 35%;
-    }
-    .politician-tag {
-      display: inline-block;
-      margin: 2px;
-      padding: 3px 8px;
-      background-color: #e6f7ff;
-      border: 1px solid #1890ff;
-      border-radius: 4px;
-      font-size: 0.9em;
-    }
-    .politician-tag.relevant {
-      background-color: #fffbe6;
-      border: 1px solid #ffc53d;
-      font-weight: bold;
-    }
-    .politician-score {
-      font-size: 0.8em;
-      color: #666;
-      margin-left: 5px;
-    }
-    .summary {
-      margin-bottom: 20px;
-      padding: 15px;
-      background-color: #e6f7ff;
-      border-radius: 5px;
-    }
-    .source-info {
-      font-size: 0.8em;
-      color: #666;
-      margin-bottom: 5px;
-    }
-    .politician-stats {
-      margin-top: 15px;
-    }
-    .politician-stat-item {
-      display: inline-block;
-      margin: 5px;
-      padding: 5px 10px;
-      background-color: #f0f8ff;
-      border-radius: 4px;
-      font-size: 0.9em;
-    }
-    .relevance-info {
-      margin-top: 10px;
-      font-size: 0.9em;
-      color: #333;
-    }
-  </style>
-</head>
-<body>
-  <h1>דוח זיהוי פוליטיקאים במאמרים אמיתיים</h1>
-  
-  <div class="summary">
-    <h2>סיכום</h2>
-    <p>סך הכל מאמרים שנותחו: <strong>${articles.length}</strong></p>
-    <p>סך הכל פוליטיקאים ייחודיים שזוהו: <strong>${countUniquePoliticians(articles)}</strong></p>
-    
-    <div class="politician-stats">
-      <h3>סטטיסטיקת זיהוי פוליטיקאים:</h3>
-      ${generatePoliticianStats(articles)}
-    </div>
-    
-    <div class="relevance-info">
-      <h3>מידע על חישוב רלוונטיות:</h3>
-      <p>הפוליטיקאים המסומנים בצהוב הם הרלוונטיים ביותר למאמר, בהתבסס על:</p>
-      <ul>
-        <li>מיקום האזכור (כותרת, תקציר, תוכן)</li>
-        <li>האם הם מוזכרים בתחילת המאמר או בסופו בלבד</li>
-        <li>האם הם מוזכרים בהקשר של ציטוט או תגובה</li>
-        <li>תדירות האזכורים</li>
-      </ul>
-      <p>ליד כל פוליטיקאי רלוונטי מוצג ציון הרלוונטיות שלו.</p>
-    </div>
-  </div>
+async function generateHtmlReport(articles, allPoliticians) {
+  let politicianStats = generatePoliticianStats(articles);
+  let uniquePoliticiansCount = countUniquePoliticians(articles);
 
-  <table>
-    <tr>
-      <th class="id-cell">#</th>
-      <th class="article-id-cell">מזהה מאמר</th>
-      <th class="politician-cell">פוליטיקאים שזוהו</th>
-      <th class="title-cell">כותרת</th>
-      <th class="description-cell">תקציר</th>
-      <th class="content-cell">תוכן</th>
-    </tr>
-    ${articles.map((article, index) => `
-    <tr>
-      <td class="id-cell">${index + 1}</td>
-      <td class="article-id-cell">${article.articleId}</td>
-      <td class="politician-cell">
-        ${formatPoliticiansList(article.detectedPoliticians, article.relevantPoliticians)}
-        <div class="source-info">מקור: ${article.source}</div>
-        <div class="source-info">תאריך: ${article.date}</div>
-      </td>
-      <td class="title-cell">${highlightPoliticians(article.title, article.detectedPoliticians)}</td>
-      <td class="description-cell">${highlightPoliticians(article.description, article.detectedPoliticians)}</td>
-      <td class="content-cell">${highlightPoliticians(article.content, article.detectedPoliticians)}</td>
-    </tr>
-    `).join('')}
-  </table>
-</body>
-</html>`;
+  let htmlContent = `
+  <!DOCTYPE html>
+  <html lang="he">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>דוח זיהוי פוליטיקאים במאמרים אמיתיים</title>
+      <style>
+          body { font-family: Arial, sans-serif; direction: rtl; margin: 20px; background-color: #f4f4f4; color: #333; }
+          h1, h2 { color: #333; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background-color: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+          th, td { border: 1px solid #ddd; padding: 12px; text-align: right; vertical-align: top; }
+          th { background-color: #e9e9e9; font-weight: bold; }
+          .article-id-cell { font-size: 0.9em; color: #555; width: 5%; }
+          .politician-cell { width: 20%; }
+          .title-cell { width: 25%; font-weight: bold; }
+          .content-cell { width: 50%; font-size: 0.95em; line-height: 1.6; }
+          .politician-tag { display: inline-block; background-color: #007bff; color: white; padding: 5px 10px; margin: 3px; border-radius: 15px; font-size: 0.9em; }
+          .politician-tag.relevant { background-color: #28a745; }
+          .politician-tag.not-relevant { background-color: #dc3545; }
+          .stats-section { padding: 15px; background-color: #fff; border: 1px solid #ddd; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+          .stats-section h2 { margin-top: 0; }
+          .stats-section p { margin: 5px 0; }
+          .no-detection { color: #777; font-style: italic; }
+          .source-info { font-size: 0.8em; color: #666; margin-top: 5px; }
+          .highlight { background-color: yellow; font-weight: bold; }
+      </style>
+  </head>
+  <body>
+      <h1>דוח זיהוי פוליטיקאים במאמרים אמיתיים</h1>
+      <div class="stats-section">
+          <h2>סיכום כללי</h2>
+          <p>סה"כ מאמרים שנדגמו: ${articles.length}</p>
+          <p>סה"כ פוליטיקאים ייחודיים שזוהו: ${uniquePoliticiansCount}</p>
+          ${politicianStats}
+      </div>
+      <h2>פירוט מאמרים</h2>
+      <table>
+          <thead>
+              <tr>
+                  <th>ID</th>
+                  <th>כותרת</th>
+                  <th>תיאור/תוכן</th>
+                  <th>פוליטיקאים שזוהו</th>
+              </tr>
+          </thead>
+          <tbody>
+  `;
 
-  return html;
+  for (const article of articles) {
+      htmlContent += `
+              <tr>
+                  <td class="article-id-cell">${article.articleId}</td>
+                  <td class="title-cell">${highlightPoliticians(article.title, article.detectedPoliticians)}</td>
+                  <td class="content-cell">${highlightPoliticians(article.content, article.detectedPoliticians)}</td>
+                  <td class="politician-cell">
+                      ${formatPoliticiansList(article.detectedPoliticians)} 
+                      <div class="source-info">מקור: ${article.source}</div>
+                      <div class="source-info">תאריך: ${article.date}</div>
+                  </td>
+              </tr>
+      `;
+  }
+
+  htmlContent += `
+          </tbody>
+      </table>
+  </body>
+  </html>`;
+
+  const outputPath = path.join(__dirname, '../data/real-articles-report.html');
+  fs.writeFileSync(outputPath, htmlContent, 'utf8');
+  console.log(`HTML report generated at: ${outputPath}`);
+  return outputPath;
 }
 
 // Generate politician statistics HTML
@@ -600,44 +395,26 @@ function generatePoliticianStats(articles) {
     .join('');
 }
 
-// Format list of politicians as tags, with relevant ones highlighted
-function formatPoliticiansList(politicians, relevantPoliticians) {
-  if (!politicians || politicians.length === 0) return '';
-  
-  // Create a map of relevant politicians for quick lookup
-  const relevantMap = {};
-  if (relevantPoliticians && relevantPoliticians.length > 0) {
-    relevantPoliticians.forEach(p => {
-      relevantMap[p.name] = p.score;
-    });
-  }
-  
-  // Filter out politicians with zero scores or no score data
-  const politiciansToShow = politicians.filter(p => {
-    // Politicians in the relevantMap should always be shown
-    if (p in relevantMap) {
-      return true;
-    }
+// Format list of politicians as tags.
+// Since enhancedPoliticianDetection now returns only relevant politicians (strings),
+// this function is simplified.
+function formatPoliticiansList(detectedPoliticiansArray) {
+    if (!detectedPoliticiansArray || detectedPoliticiansArray.length === 0) return '<span class="no-detection">לא זוהו</span>';
     
-    // For illustration purposes only:
-    // Special case for Netanyahu, Deri and Lapid for demo purposes
-    if ((p === 'בנימין נתניהו' || p === 'אריה דרעי' || p === 'יאיר לפיד') && 
-        (politicians.includes('בנימין נתניהו') && politicians.includes('אריה דרעי'))) {
-      console.log(`Special case applied: showing ${p} for demo purposes`);
-      return true;
-    }
-    
-    // By default, only show politicians that are in relevantMap (they have scores)
-    return false;
-  });
-  
-  return politiciansToShow.map(p => {
-    const isRelevant = p in relevantMap;
-    const relevantClass = isRelevant ? 'relevant' : '';
-    const scoreDisplay = isRelevant ? `<span class="politician-score">(${relevantMap[p]})</span>` : '';
-    
-    return `<div class="politician-tag ${relevantClass}">${p}${scoreDisplay}</div>`;
-  }).join('');
+    return detectedPoliticiansArray.map(politicianName => {
+        // All politicians from the service are considered relevant now for this test's display
+        return `<span class="politician-tag relevant">${escapeHtml(politicianName)}</span>`;
+    }).join('');
+}
+
+function escapeHtml(unsafe) {
+    if (unsafe === null || unsafe === undefined) return '';
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
 }
 
 // Count unique politicians across all articles
@@ -655,10 +432,7 @@ function countUniquePoliticians(articles) {
 
 // Run the main function if this script is executed directly
 if (require.main === module) {
-  processRealArticles().catch(err => {
-    console.error('Error processing real articles:', err);
-    process.exit(1);
-  });
+  processRealArticles().catch(console.error);
 }
 
 module.exports = {

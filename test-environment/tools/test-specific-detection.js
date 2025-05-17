@@ -7,7 +7,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const politicianDetection = require('../src/politician-detection');
+// const politicianDetection = require('../src/politician-detection'); // Old
+const { loadPoliticians, findPoliticianMentions } = require('../../src/politician-detection/politicianDetectionService');
 
 // Load the politicians data
 function loadPoliticians() {
@@ -102,7 +103,7 @@ function runTests() {
     console.log(`Expected: ${testCase.expectedDetections.length > 0 ? testCase.expectedDetections.join(", ") : "None"}`);
     
     // Run the detection
-    const detectedPoliticians = politicianDetection.findPoliticianMentions(testCase.text, politicians);
+    const detectedPoliticians = findPoliticianMentions(testCase.text, politicians);
     console.log(`Detected: ${detectedPoliticians.length > 0 ? detectedPoliticians.join(", ") : "None"}`);
     
     // Check for false positives (detected but not expected)
@@ -174,20 +175,20 @@ function debugPoliticianDetection(politicianName) {
   
   // Test name detection
   console.log(`\nTesting name: "${testTextName}"`);
-  const nameDetections = politicianDetection.findPoliticianMentions(testTextName, politicians);
+  const nameDetections = findPoliticianMentions(testTextName, politicians);
   console.log(`Result: ${nameDetections.join(", ") || "No detection"}`);
   
   // Test position detection
   if (testTextPosition) {
     console.log(`\nTesting position: "${testTextPosition}"`);
-    const positionDetections = politicianDetection.findPoliticianMentions(testTextPosition, politicians);
+    const positionDetections = findPoliticianMentions(testTextPosition, politicians);
     console.log(`Result: ${positionDetections.join(", ") || "No detection"}`);
   }
   
   // Test alias detection
   if (testTextAlias) {
     console.log(`\nTesting alias: "${testTextAlias}"`);
-    const aliasDetections = politicianDetection.findPoliticianMentions(testTextAlias, politicians);
+    const aliasDetections = findPoliticianMentions(testTextAlias, politicians);
     console.log(`Result: ${aliasDetections.join(", ") || "No detection"}`);
   }
 }

@@ -7,22 +7,29 @@
 
 const fs = require('fs');
 const path = require('path');
-const originalDetection = require('../src/politician-detection');
-const improvedDetection = require('../src/politician-detection/detection-fix');
+// const politicianDetection = require('../../src/politician-detection'); // original (old index.js)
+// const improvedDetection = require('../../src/politician-detection/detection-fix'); // old fix file
+const { loadPoliticians, findPoliticianMentions } = require('../../../src/politician-detection/politicianDetectionService');
 
-// Load the politicians data
-function loadPoliticians() {
-  try {
-    const politiciansPath = path.join(__dirname, '../data/politicians/politicians.json');
-    if (fs.existsSync(politiciansPath)) {
-      return originalDetection.loadPoliticians(politiciansPath);
-    }
-    
-    throw new Error('No politicians data found');
-  } catch (error) {
-    console.error('Error loading politicians:', error.message);
-    return [];
-  }
+const POLITICIANS_FILE = path.join(__dirname, '../../../../data/politicians/politicians.json');
+const ALL_POLITICIANS = loadPoliticians(POLITICIANS_FILE);
+
+// Helper to simulate the "original" simple detection if needed for comparison
+// This would be a very basic name/alias check, similar to what the initial findPoliticianMentions might have done.
+// For a true comparison to the *exact* old logic, that logic would need to be preserved/imported separately.
+function simpleLegacyFindMentions(text, politicians) {
+    const found = [];
+    politicians.forEach(p => {
+        const namesToSearch = [p.name, ...(p.aliases || [])];
+        namesToSearch.forEach(name => {
+            if (name && text.includes(name)) {
+                if (!found.includes(p.name)) {
+                    found.push(p.name);
+                }
+            }
+        });
+    });
+    return found;
 }
 
 // Test cases for comparison
@@ -166,13 +173,13 @@ function compareDetection() {
     console.log(`Text: "${testCase.text}"`);
     
     // Run the original detection
-    const originalResults = originalDetection.findPoliticianMentions(testCase.text, politicians);
+    const originalResults = simpleLegacyFindMentions(testCase.text, ALL_POLITICIANS);
     const originalPassed_case = testCase.expectDetection 
       ? originalResults.length > 0 && testCase.expectedNames.every(name => originalResults.includes(name))
       : originalResults.length === 0;
       
     // Run the improved detection
-    const improvedResults = improvedDetection.findPoliticianMentions(testCase.text, politicians);
+    const improvedResults = findPoliticianMentions(testCase.text, ALL_POLITICIANS);
     const improvedPassed_case = testCase.expectDetection 
       ? improvedResults.length > 0 && testCase.expectedNames.every(name => improvedResults.includes(name))
       : improvedResults.length === 0;

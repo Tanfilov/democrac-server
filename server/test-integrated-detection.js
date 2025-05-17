@@ -7,7 +7,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const politicianDetection = require('./src/politician-detection');
+const { loadPoliticians, findPoliticianMentions, enhancedPoliticianDetection } = require('./src/politician-detection/politicianDetectionService');
 
 // Sample text for testing
 const testTexts = [
@@ -33,11 +33,11 @@ if (!fs.existsSync(politiciansPath)) {
   process.exit(1);
 }
 
-const politicians = politicianDetection.loadPoliticians(politiciansPath);
+const politicians = loadPoliticians(politiciansPath);
 console.log(`Loaded ${politicians.length} politicians for testing\n`);
 
-// Test basic detection
-console.log('===== Testing Basic Detection =====');
+// Test basic detection (using findPoliticianMentions for simplicity here)
+console.log('===== Testing Basic Detection (findPoliticianMentions) =====');
 for (let i = 0; i < testTexts.length; i++) {
   const { title, description, content } = testTexts[i];
   const fullText = `${title} ${description} ${content}`;
@@ -47,45 +47,47 @@ for (let i = 0; i < testTexts.length; i++) {
   console.log(`Description: "${description}"`);
   console.log(`Content: "${content}"`);
   
-  const detectedPoliticians = politicianDetection.findPoliticianMentions(fullText, politicians);
+  const detectedPoliticians = findPoliticianMentions(fullText, politicians);
   console.log(`\nDetected Politicians: ${detectedPoliticians.length > 0 ? detectedPoliticians.join(', ') : 'None'}`);
 }
 
-// Test relevance scoring
-console.log('\n\n===== Testing Relevance Scoring =====');
-for (let i = 0; i < testTexts.length; i++) {
-  const testArticle = testTexts[i];
-  const fullText = `${testArticle.title} ${testArticle.description} ${testArticle.content}`;
-  
-  console.log(`\nTest Case ${i + 1}:`);
-  
-  // Detect politicians first
-  const detectedPoliticians = politicianDetection.findPoliticianMentions(fullText, politicians);
-  if (detectedPoliticians.length === 0) {
-    console.log('No politicians detected, skipping relevance scoring.');
-    continue;
+// Mock functions for enhancedPoliticianDetection
+const mockScrapeArticleContent = async (article) => {
+  console.log(`Mock scrape called for article: ${article.title} - returning existing content for test.`);
+  // For this test, we assume the provided article.content is what would be scraped or already exists.
+  return article.content || article.description || article.title; 
+};
+const mockUpdateArticleContentInDb = async (articleId, dbContent) => {
+  console.log(`Mock DB update called for article ID ${articleId}. Content length: ${dbContent ? dbContent.length : 0}`);
+  return Promise.resolve();
+};
+
+// Test enhanced detection (which includes relevance scoring internally)
+console.log('\n\n===== Testing Enhanced Detection (enhancedPoliticianDetection) =====');
+(async () => {
+  for (let i = 0; i < testTexts.length; i++) {
+    const testArticle = {
+        id: `test_${i+1}`,
+        ...testTexts[i]
+    };
+    
+    console.log(`\nTest Case ${i + 1}: "${testArticle.title}"`);
+    
+    const relevantPoliticians = await enhancedPoliticianDetection(
+      testArticle, 
+      politicians,
+      mockScrapeArticleContent, // Pass the mock scrape function
+      mockUpdateArticleContentInDb // Pass the mock DB update function
+    );
+    
+    console.log('Relevant Politicians (from enhancedPoliticianDetection):');
+    if (relevantPoliticians && relevantPoliticians.length > 0) {
+      relevantPoliticians.forEach(pName => console.log(`- ${pName}`));
+    } else {
+      console.log('None');
+    }
   }
   
-  // Score the detected politicians
-  const scoredPoliticians = politicianDetection.scorePoliticianRelevance(
-    testArticle, 
-    detectedPoliticians
-  );
-  
-  // Get the most relevant politicians
-  const relevantPoliticians = politicianDetection.getRelevantPoliticians(scoredPoliticians, {
-    maxCount: 3
-  });
-  
-  console.log('Detected Politicians:');
-  detectedPoliticians.forEach(p => console.log(`- ${p}`));
-  
-  console.log('\nRelevant Politicians:');
-  relevantPoliticians.forEach(p => {
-    console.log(`- ${p.name} (score: ${p.score}, relevant: ${p.isRelevant})`);
-    console.log(`  Reasons: ${p.reasons.join(', ')}`);
-  });
-}
-
-console.log('\n===== Integration Test Complete =====');
-console.log('If you see politician detections and relevance scores, the integration is working correctly!'); 
+  console.log('\n===== Integration Test Complete =====');
+  console.log('If you see politician detections, the integration is working correctly!');
+})(); 

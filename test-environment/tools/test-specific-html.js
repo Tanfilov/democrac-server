@@ -7,32 +7,18 @@
 
 const fs = require('fs');
 const path = require('path');
-const politicianDetection = require('../src/politician-detection');
-const originalDetection = require('../src/politician-detection');
-const improvedDetection = require('../src/politician-detection/detection-fix');
+const { JSDOM } = require('jsdom');
 const open = require('open');
 const { exec } = require('child_process');
 const os = require('os');
+const { loadPoliticians, findPoliticianMentions } = require('../../src/politician-detection/politicianDetectionService');
 
-// Load the politicians data
-function loadPoliticians() {
-  try {
-    const politiciansPath = path.join(__dirname, '../data/politicians/politicians.json');
-    if (fs.existsSync(politiciansPath)) {
-      return politicianDetection.loadPoliticians(politiciansPath);
-    }
-    
-    throw new Error('No politicians data found');
-  } catch (error) {
-    console.error('Error loading politicians:', error.message);
-    return [];
-  }
-}
+const POLITICIANS_FILE = path.join(__dirname, '../../../data/politicians/politicians.json');
+const politicians = loadPoliticians(POLITICIANS_FILE);
 
 // Process a test file and generate an HTML report
 async function processTestFile(filePath) {
   // Load politicians
-  const politicians = loadPoliticians();
   console.log(`Loaded ${politicians.length} politicians for testing`);
   
   // Read test file
@@ -59,16 +45,21 @@ async function processTestFile(filePath) {
   
   for (const testCase of testCases) {
     // Get detections from both algorithms
-    const originalResults = originalDetection.findPoliticianMentions(testCase.text, politicians);
-    const improvedResults = improvedDetection.findPoliticianMentions(testCase.text, politicians);
+    // Original detection (if still needed for comparison, otherwise remove)
+    // const originalResults = originalDetection.findPoliticianMentions(testCase.text, politicians);
+    // console.log(`Original detection: ${originalResults.join(', ')}`);
+
+    // Improved detection
+    const improvedResults = findPoliticianMentions(testCase.text, politicians);
+    console.log(`Improved detection: ${improvedResults.join(', ')}`);
     
     // Add result
     results.push({
       number: testCase.number,
       text: testCase.text,
-      originalDetections: originalResults,
+      originalDetections: [],
       improvedDetections: improvedResults,
-      hasDifference: !areDetectionsEqual(originalResults, improvedResults)
+      hasDifference: !areDetectionsEqual(results[results.length - 1].originalDetections, improvedResults)
     });
   }
   

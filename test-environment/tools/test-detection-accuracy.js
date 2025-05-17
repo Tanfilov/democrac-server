@@ -10,33 +10,25 @@ const fs = require('fs');
 const path = require('path');
 const Parser = require('rss-parser');
 const { htmlToText } = require('html-to-text');
-const politicianDetection = require('../src/politician-detection');
+const { loadPoliticians, findPoliticianMentions } = require('../../../src/politician-detection/politicianDetectionService');
 const config = require('../src/config');
 
 // Character window around a detection to show
 const CONTEXT_WINDOW = 100;
 
-// Get the JSON politicians data
-const loadPoliticians = () => {
-  try {
-    // First check if we have sample data in our test environment
-    const samplePath = path.join(__dirname, '../data/politicians/politicians.json');
-    if (fs.existsSync(samplePath)) {
-      return politicianDetection.loadPoliticians(samplePath);
-    }
-    
-    // Fall back to the real data
-    const politiciansPath = path.join(__dirname, '../../data/politicians/politicians.json');
-    if (fs.existsSync(politiciansPath)) {
-      return politicianDetection.loadPoliticians(politiciansPath);
-    }
-    
-    throw new Error('No politicians data found');
-  } catch (error) {
-    console.error('Error loading politicians:', error.message);
-    return [];
-  }
-};
+const POLITICIANS_FILE = path.join(__dirname, '../../../../data/politicians/politicians.json');
+const ALL_POLITICIANS = loadPoliticians(POLITICIANS_FILE);
+
+const accuracyTestCases = [
+    { "text": "בנימין נתניהו נאם בכנסת.", "expected": ["בנימין נתניהו"] },
+    { "text": "יאיר לפיד וגם אביגדור ליברמן הגיבו.", "expected": ["יאיר לפיד", "אביגדור ליברמן"] },
+    { "text": "גלנט דן עם הרמטכ\"ל הרצי הלוי.", "expected": ["יואב גלנט", "הרצי הלוי"] },
+    { "text": "שום פוליטיקאי לא מוזכר כאן.", "expected": [] },
+    { "text": "הנשיא הרצוג ורעייתו מיכל הרצוג אירחו את האירוע.", "expected": ["יצחק הרצוג", "מיכל הרצוג"] },
+    { "text": "רה\"מ בנימין נתניהו שוחח עם ביידן.", "expected": ["בנימין נתניהו", "ג'ו ביידן"] }, // Assuming ביידן is in your list
+    { "text": "השר לביטחון לאומי איתמר בן גביר הגיע לזירה.", "expected": ["איתמר בן גביר"] },
+    { "text": "אין אזכור של בני גנץ או גדי איזנקוט.", "expected": [] }
+];
 
 // Enhanced detection that provides detailed information
 function enhancedDetectionWithContext(text, politicians) {
@@ -355,15 +347,74 @@ function printDetections(detections, section) {
   });
 }
 
+// Main function
+async function runAccuracyTest() {
+    if (accuracyTestCases.length === 0) {
+        console.log("No test cases found for accuracy testing.");
+        return;
+    }
+    console.log(`Loaded ${ALL_POLITICIANS.length} politicians.`);
+    console.log(`Running accuracy tests on ${accuracyTestCases.length} cases...`);
+
+    let totalDetections = 0;
+    let correctDetections = 0; // True Positives
+    let falsePositives = 0;
+    let falseNegatives = 0;
+    let totalExpectedMentions = 0;
+
+    for (const testCase of accuracyTestCases) {
+        const detected = findPoliticianMentions(testCase.text, ALL_POLITICIANS);
+        const expected = testCase.expected || [];
+        
+        totalExpectedMentions += expected.length;
+
+        // Calculate True Positives (correctly detected) for this case
+        const truePositivesForCase = detected.filter(p => expected.includes(p));
+        correctDetections += truePositivesForCase.length;
+        
+        // Calculate False Positives for this case
+        const falsePositivesForCase = detected.filter(p => !expected.includes(p));
+        falsePositives += falsePositivesForCase.length;
+
+        // Calculate False Negatives for this case
+        const falseNegativesForCase = expected.filter(p => !detected.includes(p));
+        falseNegatives += falseNegativesForCase.length;
+        
+        totalDetections += detected.length; // Total items returned by the detection
+    }
+
+    // Precision: TP / (TP + FP)
+    const precision = (correctDetections + falsePositives) > 0 ? (correctDetections / (correctDetections + falsePositives)) : 0;
+    // Recall: TP / (TP + FN)
+    const recall = (correctDetections + falseNegatives) > 0 ? (correctDetections / (correctDetections + falseNegatives)) : 0;
+    // F1-Score: 2 * (Precision * Recall) / (Precision + Recall)
+    const f1Score = (precision + recall) > 0 ? (2 * (precision * recall) / (precision + recall)) : 0;
+
+    console.log("\n--- Accuracy Test Results ---");
+    console.log(`Total Test Cases: ${accuracyTestCases.length}`);
+    console.log(`Total Expected Mentions (sum of all expected items): ${totalExpectedMentions}`);
+   // console.log(`Total Detected Mentions (sum of all items found by detector): ${totalDetections}`); // This can be confusing
+    console.log(`True Positives (Correctly Detected Mentions): ${correctDetections}`);
+    console.log(`False Positives (Detected but not Expected): ${falsePositives}`);
+    console.log(`False Negatives (Expected but not Detected): ${falseNegatives}`);
+    console.log("---------------------------");
+    console.log(`Precision: ${precision.toFixed(3)}`);
+    console.log(`Recall: ${recall.toFixed(3)}`);
+    console.log(`F1-Score: ${f1Score.toFixed(3)}`);
+    console.log("---------------------------");
+}
+
 // Run the main function if this script is executed directly
 if (require.main === module) {
   parseAndTestFeeds().catch(err => {
     console.error('Error running detection test:', err);
     process.exit(1);
   });
+  runAccuracyTest().catch(console.error);
 }
 
 module.exports = {
   enhancedDetectionWithContext,
-  parseAndTestFeeds
+  parseAndTestFeeds,
+  runAccuracyTest
 }; 
