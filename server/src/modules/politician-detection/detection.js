@@ -26,108 +26,85 @@ function findPoliticianMentions(text, POLITICIANS) {
   const normalizedText = text
     .replace(/[""״]/g, '"')  // Normalize various quote types to standard quotes
     .replace(/['׳']/g, "'"); // Normalize various apostrophe types
-  
-  const detectedPoliticians = new Set();
-  
-  // 1. Direct name and alias matching
-  POLITICIANS.forEach(politician => {
-    const politicianName = politician.name || politician.he; // Support both name structures
-    let detected = false;
     
-    // Check exact name with various Hebrew prefixes
+  return POLITICIANS.filter(politician => {
+    const politicianName = politician.name || politician.he; // Support both name structures
+    
+    // 1. Direct check - find exact name in text
     for (const prefix of prefixes) {
       const nameWithPrefix = prefix + politicianName;
       
-      if (isExactMatch(normalizedText, nameWithPrefix, wordBoundaries, politician)) {
-        detectedPoliticians.add(politicianName);
-        detected = true;
-        break;
+      if (isExactMatch(normalizedText, nameWithPrefix, wordBoundaries)) {
+        return true;
       }
     }
     
-    // Check aliases if not detected by name
-    if (!detected && politician.aliases && politician.aliases.length > 0) {
+    // 2. Special pattern for quoted speech/statements - handles "X said: "...Y..."" patterns
+    const specialPatterns = [
+      // Name inside quotes after a colon (e.g., "X said: "...name..."")
+      `:[^"]*"[^"]*\\b${politicianName}\\b[^"]*"`,
+      
+      // Name after "של" (of) inside quotes (e.g., ""...of name..."")
+      `"[^"]*של\\s+${politicianName}[^"]*"`,
+      
+      // Direct name in quotes (e.g., ""...name..."")
+      `"[^"]*\\b${politicianName}\\b[^"]*"`
+    ];
+    
+    for (const pattern of specialPatterns) {
+      const regex = new RegExp(pattern, 'i');
+      if (regex.test(normalizedText)) {
+        return true;
+      }
+    }
+    
+    // 3. Check for name after a colon (common in news headlines)
+    const colonPattern = new RegExp(`:[^:]*\\b${politicianName}\\b`, 'i');
+    if (colonPattern.test(normalizedText)) {
+      return true;
+    }
+    
+    // 4. Check for people specifically mentioned in the title as positions
+    const positionTerms = {
+      'ראש הממשלה': ['בנימין נתניהו'],
+      'נשיא המדינה': ['יצחק הרצוג'],
+      'שר הביטחון': ['יואב גלנט'],
+      'יו"ר האופוזיציה': ['יאיר לפיד'],
+      'הנשיא': ['יצחק הרצוג']
+    };
+    
+    for (const [position, politicians] of Object.entries(positionTerms)) {
+      if (normalizedText.includes(position) && politicians.includes(politicianName)) {
+        return true;
+      }
+    }
+    
+    // Check aliases with all the same patterns
+    if (politician.aliases && politician.aliases.length > 0) {
       for (const alias of politician.aliases) {
         if (alias.length < 3) continue; // Skip very short aliases
         
+        // Direct check
         for (const prefix of prefixes) {
           const aliasWithPrefix = prefix + alias;
           
-          if (isExactMatch(normalizedText, aliasWithPrefix, wordBoundaries, politician)) {
-            detectedPoliticians.add(politicianName);
-            detected = true;
-            break;
+          if (isExactMatch(normalizedText, aliasWithPrefix, wordBoundaries)) {
+            return true;
           }
         }
         
-        if (detected) break;
-      }
-    }
-  });
-  
-  // 2. Position-based detection
-  const positionMap = {
-    'ראש הממשלה': 'ראש הממשלה',
-    'רה"מ': 'ראש הממשלה',
-    'ראש האופוזיציה': 'ראש האופוזיציה',
-    'שר הביטחון': 'שר הביטחון',
-    'שר האוצר': 'שר האוצר',
-    'שר החוץ': 'שר החוץ',
-    'שר הפנים': 'שר הפנים',
-    'השר לביטחון לאומי': 'השר לביטחון לאומי',
-    'יושב ראש הכנסת': 'יושב ראש הכנסת',
-    'נשיא המדינה': 'נשיא המדינה',
-    'הנשיא': 'נשיא המדינה'
-  };
-  
-  // Check if any positions are mentioned in the text
-  Object.entries(positionMap).forEach(([positionTerm, standardPosition]) => {
-    // Check with prefixes
-    for (const prefix of prefixes) {
-      const posWithPrefix = prefix + positionTerm;
-      
-      if (isExactMatch(normalizedText, posWithPrefix, wordBoundaries)) {
-        // Check if position is qualified in a way that makes it not refer to the current holder
-        if (isModifiedPosition(normalizedText, posWithPrefix)) {
-          continue;
-        }
-        
-        // Only detect current positions
-        const politiciansWithPosition = POLITICIANS.filter(p => 
-          (p.position === standardPosition) || (p.role === standardPosition)
-        );
-        
-        if (politiciansWithPosition.length > 0) {
-          // New approach: only detect by position if there's a partial name indicator nearby
-          const politician = politiciansWithPosition[0]; // Take the first one
-          const politicianName = politician.name || politician.he;
-          
-          // Check for partial name indicators near the position
-          const positionIndex = normalizedText.indexOf(posWithPrefix);
-          const windowSize = 200; // Characters to check before and after the position
-          
-          const contextStart = Math.max(0, positionIndex - windowSize);
-          const contextEnd = Math.min(normalizedText.length, positionIndex + posWithPrefix.length + windowSize);
-          const context = normalizedText.substring(contextStart, contextEnd);
-          
-          // Get name parts that wouldn't be detected on their own
-          const nameParts = getPartialNameIndicators(politicianName);
-          
-          // Check if any partial name indicators are present in the context
-          const hasPartialNameIndicator = nameParts.some(part => 
-            context.includes(part) && 
-            isStandaloneWord(context, part)
-          );
-          
-          if (hasPartialNameIndicator) {
-            detectedPoliticians.add(politicianName);
+        // Special patterns for aliases
+        for (const pattern of specialPatterns.map(p => p.replace(politicianName, alias))) {
+          const regex = new RegExp(pattern, 'i');
+          if (regex.test(normalizedText)) {
+            return true;
           }
         }
       }
     }
-  });
-  
-  return Array.from(detectedPoliticians);
+    
+    return false;
+  }).map(p => p.name || p.he);
 }
 
 /**
@@ -456,20 +433,8 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
       }
     }
     
-    // Step 3: Sort politicians by confidence score and filter out low confidence mentions
-    const politiciansWithScores = detectedPoliticians.map(name => ({
-      name,
-      score: confidenceScores[name] || 0,
-      methods: detectionMethods[name] || []
-    })).sort((a, b) => b.score - a.score);
-    
-    // Extract just the sorted politician names
-    const highConfidencePoliticians = politiciansWithScores
-      .filter(p => p.score >= 2) // Only keep politicians with at least 2 confidence score
-      .map(p => p.name);
-      
-    // Return all detected politicians if specific high confidence ones aren't found
-    return highConfidencePoliticians.length > 0 ? highConfidencePoliticians : detectedPoliticians;
+    // Return all detected politicians without any filtering by confidence
+    return detectedPoliticians;
   } catch (error) {
     console.error("Error in enhanced politician detection:", error);
     return [];
