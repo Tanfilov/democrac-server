@@ -433,8 +433,20 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
       }
     }
     
-    // Return all detected politicians without any filtering by confidence
-    return detectedPoliticians;
+    // Step 3: Sort politicians by confidence score and filter out low confidence mentions
+    const politiciansWithScores = detectedPoliticians.map(name => ({
+      name,
+      score: confidenceScores[name] || 0,
+      methods: detectionMethods[name] || []
+    })).sort((a, b) => b.score - a.score);
+    
+    // Extract just the sorted politician names
+    const highConfidencePoliticians = politiciansWithScores
+      .filter(p => p.score >= 2) // Only keep politicians with at least 2 confidence score
+      .map(p => p.name);
+      
+    // Return all detected politicians if specific high confidence ones aren't found
+    return highConfidencePoliticians.length > 0 ? highConfidencePoliticians : detectedPoliticians;
   } catch (error) {
     console.error("Error in enhanced politician detection:", error);
     return [];
