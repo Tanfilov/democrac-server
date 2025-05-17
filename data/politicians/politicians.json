@@ -13,7 +13,7 @@
   {
     "name": "יריב לוין",
     "party": "הליכוד",
-    "position": "יושב ראש הכנסת",
+    "position": "סגן ראש הממשלה, שר המשפטים",
     "aliases": [],
     "image": "יריב_לוין.png",
     "image_url": ""
@@ -21,7 +21,7 @@
   {
     "name": "אלי כהן",
     "party": "הליכוד",
-    "position": "שר החוץ",
+    "position": "שר האנרגיה והתשתיות",
     "aliases": [],
     "image": "אלי_אליהו_כהן.png",
     "image_url": "",
@@ -47,7 +47,7 @@
   {
     "name": "דוד אמסלם",
     "party": "הליכוד",
-    "position": "שר",
+    "position": "שר נוסף במשרד המשפטים, שר הקשר בין הממשלה לכנסת, השר לשיתוף פעולה אזורי",
     "aliases": [],
     "image": "דוד_אמסלם.png",
     "image_url": ""
@@ -63,7 +63,7 @@
   {
     "name": "יואב קיש",
     "party": "הליכוד",
-    "position": "שר",
+    "position": "שר החינוך",
     "aliases": [],
     "image": "יואב_קיש.png",
     "image_url": ""
@@ -71,7 +71,7 @@
   {
     "name": "ניר ברקת",
     "party": "הליכוד",
-    "position": "",
+    "position": "שר הכלכלה והתעשייה",
     "aliases": [],
     "image": "ניר_ברקת.png",
     "image_url": ""
@@ -79,7 +79,7 @@
   {
     "name": "מירי רגב",
     "party": "הליכוד",
-    "position": "שרה",
+    "position": "שרת התחבורה והבטיחות בדרכים",
     "aliases": [],
     "image": "מירי_מרים_רגב.png",
     "image_url": ""
@@ -87,7 +87,7 @@
   {
     "name": "מיקי זוהר",
     "party": "הליכוד",
-    "position": "שר",
+    "position": "שר התרבות והספורט",
     "aliases": [],
     "image": "מכלוף_מיקי_זוהר.png",
     "image_url": ""
@@ -95,7 +95,7 @@
   {
     "name": "אבי דיכטר",
     "party": "הליכוד",
-    "position": "",
+    "position": "שר החקלאות וביטחון המזון",
     "aliases": [],
     "image": "אבי_דיכטר.png",
     "image_url": ""
@@ -111,7 +111,7 @@
   {
     "name": "שלמה קרעי",
     "party": "הליכוד",
-    "position": "",
+    "position": "שר התקשורת",
     "aliases": [],
     "image": "שלמה_קרעי.png",
     "image_url": ""
@@ -119,7 +119,7 @@
   {
     "name": "עמיחי שיקלי",
     "party": "הליכוד",
-    "position": "שר",
+    "position": "שר התפוצות והמאבק באנטישמיות",
     "aliases": [],
     "image": "עמיחי_שיקלי.png",
     "image_url": ""
@@ -135,7 +135,7 @@
   {
     "name": "עידית סילמן",
     "party": "הליכוד",
-    "position": "שרה",
+    "position": "השרה להגנת הסביבה",
     "aliases": [],
     "image": "עידית_סילמן.png",
     "image_url": ""
@@ -195,7 +195,7 @@
   {
     "name": "חיים כץ",
     "party": "הליכוד",
-    "position": "שר",
+    "position": "שר התיירות",
     "aliases": [],
     "image": "חיים_כץ.png",
     "image_url": ""
@@ -255,7 +255,7 @@
   {
     "name": "גילה גמליאל",
     "party": "הליכוד",
-    "position": "",
+    "position": "שרת החדשנות, המדע והטכנולוגיה",
     "aliases": [],
     "image": "גילה_גמליאל.png",
     "image_url": ""
@@ -271,7 +271,7 @@
   {
     "name": "מאי גולן",
     "party": "הליכוד",
-    "position": "",
+    "position": "השרה לשוויון חברתי וקידום מעמד האישה",
     "aliases": [],
     "image": "מאי_גולן.png",
     "image_url": ""
@@ -605,7 +605,7 @@
   {
     "name": "יעקב מרגי",
     "party": "ש\"ס",
-    "position": "שר",
+    "position": "שר הרווחה והביטחון החברתי",
     "aliases": [],
     "image": "יעקב_מרגי.png",
     "image_url": ""
@@ -613,7 +613,7 @@
   {
     "name": "יואב בן-צור",
     "party": "ש\"ס",
-    "position": "שר",
+    "position": "שר העבודה",
     "aliases": [
       "יואב בן צור"
     ],
@@ -623,7 +623,7 @@
   {
     "name": "מיכאל מלכיאלי",
     "party": "ש\"ס",
-    "position": "",
+    "position": "השר לשירותי דת",
     "aliases": [],
     "image": "מיכאל_מלכיאלי.png",
     "image_url": ""
@@ -631,7 +631,7 @@
   {
     "name": "חיים ביטון",
     "party": "ש\"ס",
-    "position": "שר",
+    "position": "שר בלי תיק במשרד החינוך",
     "aliases": [],
     "image": "חיים_ביטון.png",
     "image_url": ""
@@ -639,7 +639,7 @@
   {
     "name": "משה ארבל",
     "party": "ש\"ס",
-    "position": "",
+    "position": "שר הפנים",
     "aliases": [],
     "image": "משה_ארבל.png",
     "image_url": ""
@@ -655,7 +655,7 @@
   {
     "name": "משה אבוטבול",
     "party": "ש\"ס",
-    "position": "",
+    "position": "סגן שר החקלאות וביטחון המזון",
     "aliases": [],
     "image": "משה_אבוטבול.png",
     "image_url": ""
@@ -663,7 +663,7 @@
   {
     "name": "אוריאל בוסו",
     "party": "ש\"ס",
-    "position": "",
+    "position": "שר הבריאות",
     "aliases": [],
     "image": "אוריאל_בוסו.png",
     "image_url": ""
@@ -785,7 +785,7 @@
   {
     "name": "בצלאל סמוטריץ'",
     "party": "הציונות הדתית",
-    "position": "שר האוצר",
+    "position": "שר האוצר, שר נוסף במשרד הביטחון",
     "aliases": [
       "בצלאל סמוטריץ"
     ],
@@ -795,7 +795,7 @@
   {
     "name": "אופיר סופר",
     "party": "הציונות הדתית",
-    "position": "",
+    "position": "שר העלייה והקליטה",
     "aliases": [],
     "image": "אופיר_סופר.png",
     "image_url": ""
@@ -803,7 +803,7 @@
   {
     "name": "אורית סטרוק",
     "party": "הציונות הדתית",
-    "position": "",
+    "position": "שרת ההתיישבות והמשימות הלאומיות",
     "aliases": [],
     "image": "אורית_סטרוק.png",
     "image_url": ""
@@ -853,7 +853,7 @@
   {
     "name": "יצחק גולדקנופף",
     "party": "יהדות התורה",
-    "position": "שר",
+    "position": "שר הבינוי והשיכון",
     "aliases": [
       "יצחק גולדקנופ"
     ],
@@ -871,7 +871,7 @@
   {
     "name": "מאיר פרוש",
     "party": "יהדות התורה",
-    "position": "שר",
+    "position": "שר ירושלים ומסורת ישראל",
     "aliases": [],
     "image": "מאיר_פרוש.png",
     "image_url": ""
@@ -879,7 +879,7 @@
   {
     "name": "אורי מקלב",
     "party": "יהדות התורה",
-    "position": "",
+    "position": "סגן שר התחבורה והבטיחות בדרכים, סגן שר ראש הממשלה",
     "aliases": [],
     "image": "אורי_מקלב.png",
     "image_url": ""
@@ -887,7 +887,7 @@
   {
     "name": "יעקב טסלר",
     "party": "יהדות התורה",
-    "position": "",
+    "position": "סגן שר התרבות והספורט",
     "aliases": [],
     "image": "יעקב_טסלר.png",
     "image_url": ""
@@ -943,7 +943,7 @@
   {
     "name": "יצחק וסרלאוף",
     "party": "עוצמה יהודית",
-    "position": "",
+    "position": "שר הנגב, הגליל והחוסן הלאומי",
     "aliases": [
       "יצחק שמעון וסרלאוף"
     ],
@@ -953,7 +953,7 @@
   {
     "name": "אלמוג כהן",
     "party": "עוצמה יהודית",
-    "position": "",
+    "position": "סגן שר במשרד ראש הממשלה",
     "aliases": [],
     "image": "אלמוג_כהן.png",
     "image_url": ""
@@ -961,7 +961,7 @@
   {
     "name": "עמיחי אליהו",
     "party": "עוצמה יהודית",
-    "position": "",
+    "position": "שר המורשת",
     "aliases": [],
     "image": "עמיחי_אליהו.png",
     "image_url": ""
@@ -1131,7 +1131,7 @@
   {
     "name": "גדעון סער",
     "party": "הימין הממלכתי",
-    "position": "",
+    "position": "שר החוץ",
     "aliases": [],
     "image": "גדעון_סער.png",
     "image_url": ""
@@ -1147,7 +1147,7 @@
   {
     "name": "זאב אלקין",
     "party": "הימין הממלכתי",
-    "position": "",
+    "position": "שר נוסף במשרד האוצר",
     "aliases": [],
     "image": "זאב_אלקין.png",
     "image_url": ""
@@ -1155,7 +1155,7 @@
   {
     "name": "שרן השכל",
     "party": "הימין הממלכתי",
-    "position": "",
+    "position": "סגנית שר החוץ",
     "aliases": [],
     "image": "שרן_מרים_השכל.png",
     "image_url": ""
