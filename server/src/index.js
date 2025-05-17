@@ -90,6 +90,15 @@ const parser = new Parser({
 // Initialize SQLite database
 const db = new sqlite3.Database(DB_PATH);
 
+// Enable foreign key constraints
+db.run('PRAGMA foreign_keys = ON', err => {
+  if (err) {
+    console.error('Error enabling foreign key constraints:', err);
+  } else {
+    console.log('Foreign key constraints enabled');
+  }
+});
+
 // Setup database tables
 const initDatabase = () => {
   return new Promise((resolve, reject) => {
