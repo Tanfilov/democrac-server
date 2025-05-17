@@ -377,16 +377,22 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
   try {
     // Step 1: Check title and description
     let detectedPoliticians = [];
-    let confidenceScores = {};
-    let detectionMethods = {};
+    
+    // Track where each politician was found
+    let foundIn = {};
+    let mentionCounts = {};
+    
+    // Track text positions for content mentions
+    let contentPositions = {};
+    let inQuotes = {};
     
     // Check title - highest confidence
     if (article.title) {
       const titlePoliticians = findPoliticianMentions(article.title, POLITICIANS);
       titlePoliticians.forEach(p => {
         detectedPoliticians.push(p);
-        confidenceScores[p] = (confidenceScores[p] || 0) + 3; // Higher weight for title matches
-        detectionMethods[p] = [...(detectionMethods[p] || []), 'title'];
+        foundIn[p] = foundIn[p] || [];
+        foundIn[p].push('title');
       });
     }
     
@@ -395,62 +401,114 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
       const descriptionPoliticians = findPoliticianMentions(article.description, POLITICIANS);
       descriptionPoliticians.forEach(p => {
         if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
-        confidenceScores[p] = (confidenceScores[p] || 0) + 2; // Medium weight for description matches
-        detectionMethods[p] = [...(detectionMethods[p] || []), 'description'];
+        foundIn[p] = foundIn[p] || [];
+        foundIn[p].push('description');
       });
     }
     
-    // Step 2: If we have content already, check it
+    // Step 2: Check content (with more detailed analysis)
+    let content = null;
+    
+    // Use existing content if available
     if (article.content && article.content.length > 50) {
-      const contentPoliticians = findPoliticianMentions(article.content, POLITICIANS);
-      contentPoliticians.forEach(p => {
-        if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
-        confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
-        detectionMethods[p] = [...(detectionMethods[p] || []), 'content'];
-      });
+      content = article.content;
     } 
     // If we don't have sufficient content, scrape it
     else if (article.link && scrapeArticleContent) {
       try {
-        const scrapedContent = await scrapeArticleContent(article.link);
+        content = await scrapeArticleContent(article.link);
         
-        if (scrapedContent && scrapedContent.length > 50) {
+        if (content && content.length > 50) {
           // Update the article content in the database
           if (updateArticleContent) {
-            await updateArticleContent(article.id, scrapedContent);
+            await updateArticleContent(article.id, content);
           }
-          
-          // Check for politicians in the scraped content
-          const contentPoliticians = findPoliticianMentions(scrapedContent, POLITICIANS);
-          contentPoliticians.forEach(p => {
-            if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
-            confidenceScores[p] = (confidenceScores[p] || 0) + 1; // Lower weight for content matches
-            detectionMethods[p] = [...(detectionMethods[p] || []), 'scraped_content'];
-          });
         }
       } catch (error) {
         console.error(`Error scraping content for article ${article.id}:`, error);
       }
     }
     
-    // Step 3: Sort politicians by confidence score and filter out low confidence mentions
-    const politiciansWithScores = detectedPoliticians.map(name => ({
-      name,
-      score: confidenceScores[name] || 0,
-      methods: detectionMethods[name] || []
-    })).sort((a, b) => b.score - a.score);
-    
-    // Extract just the sorted politician names
-    const highConfidencePoliticians = politiciansWithScores
-      .filter(p => p.score >= 2) // Only keep politicians with at least 2 confidence score
-      .map(p => p.name);
+    // Analyze content if we have it
+    if (content) {
+      const contentPoliticians = findPoliticianMentions(content, POLITICIANS);
       
-    // Return all detected politicians if specific high confidence ones aren't found
-    return highConfidencePoliticians.length > 0 ? highConfidencePoliticians : detectedPoliticians;
+      // For each politician found in content, analyze their mentions more carefully
+      contentPoliticians.forEach(p => {
+        if (!detectedPoliticians.includes(p)) detectedPoliticians.push(p);
+        
+        foundIn[p] = foundIn[p] || [];
+        foundIn[p].push('content');
+        
+        // Count occurrences
+        const matches = findAllMatches(content, p);
+        mentionCounts[p] = matches.length;
+        
+        // Check if early in content (first 500 chars)
+        const earlyContent = content.substring(0, 500);
+        contentPositions[p] = earlyContent.includes(p) ? 'early' : 'late';
+        
+        // Check if in quotes
+        inQuotes[p] = matches.some(match => isInsideQuotes(content, match.index, match.index + p.length));
+      });
+    }
+    
+    // Step 3: Apply the final inclusion rules
+    const relevantPoliticians = detectedPoliticians.filter(p => {
+      // Rule 1: Always include politicians from title or description
+      if (foundIn[p] && (foundIn[p].includes('title') || foundIn[p].includes('description'))) {
+        return true;
+      }
+      
+      // Rule 2: For body-only mentions, apply additional criteria
+      if (foundIn[p] && foundIn[p].includes('content') && 
+          !foundIn[p].includes('title') && !foundIn[p].includes('description')) {
+        
+        // Include if mentioned multiple times
+        if (mentionCounts[p] > 1) {
+          return true;
+        }
+        
+        // Include if mentioned early in text
+        if (contentPositions[p] === 'early') {
+          return true;
+        }
+        
+        // Include if mentioned in quotes
+        if (inQuotes[p]) {
+          return true;
+        }
+        
+        // Otherwise exclude
+        return false;
+      }
+      
+      return false; // Default exclusion
+    });
+    
+    return relevantPoliticians;
   } catch (error) {
     console.error("Error in enhanced politician detection:", error);
     return [];
   }
+}
+
+/**
+ * Find all matches of a substring in text
+ * @param {string} text - The text to search in
+ * @param {string} substring - The substring to find
+ * @returns {Array} Array of match objects with index property
+ */
+function findAllMatches(text, substring) {
+  const matches = [];
+  let index = text.indexOf(substring);
+  
+  while (index !== -1) {
+    matches.push({ index });
+    index = text.indexOf(substring, index + 1);
+  }
+  
+  return matches;
 }
 
 module.exports = {
