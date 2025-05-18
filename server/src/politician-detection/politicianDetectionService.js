@@ -404,6 +404,14 @@ function _countInReactionContext(text, term, windowSize = 120) {
 
 
 async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleContent, updateArticleContent) {
+  // --- DEBUG LOGGING --- Removed for commit ---
+  // console.log(`[[enhancedPoliticianDetection]] Processing Article ID: ${article.id}`);
+  // console.log(`  Title length: ${article.title ? article.title.length : 'N/A'}`);
+  // console.log(`  Description length: ${article.description ? article.description.length : 'N/A'}`);
+  // console.log(`  Content length: ${article.content ? article.content.length : 'N/A'}`);
+  // --- END DEBUG LOGGING ---
+
+  // console.log('\n\n\n\n\n[[DEBUG]] Starting enhancedPoliticianDetection for article:', article.id); 
   if (!article || (!article.content && !article.description && !article.title)) {
     console.warn('Article has no content, description, or title. Skipping enhanced detection.', article.id);
     return [];

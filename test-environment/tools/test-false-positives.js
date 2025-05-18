@@ -215,7 +215,7 @@ async function testFalsePositives() {
   const results = [];
   let passedCount = 0;
   let failedCount = 0;
-
+  
   for (const scenario of falsePositiveScenarios) {
     const detectedPoliticians = findPoliticianMentions(scenario.text, ALL_POLITICIANS);
     const passed = areDetectionsEqual(detectedPoliticians, scenario.expectedDetections);
@@ -225,7 +225,7 @@ async function testFalsePositives() {
     } else {
       failedCount++;
     }
-
+    
     results.push({
       text: scenario.text,
       expected: scenario.expectedDetections,
@@ -233,7 +233,7 @@ async function testFalsePositives() {
       passed: passed
     });
   }
-
+  
   // Generate and save HTML report
   const reportPath = await generateHtmlReport(results, passedCount, failedCount);
   console.log(`False positives test report generated at: ${reportPath}`);
@@ -281,28 +281,28 @@ async function generateHtmlReport(results, passedCount, failedCount) {
   <h2>פירוט תוצאות</h2>
   <table>
     <thead>
-      <tr>
+    <tr>
         <th style="width: 50%;">טקסט לבדיקה</th>
         <th style="width: 20%;">זיהויים מצופים</th>
         <th style="width: 20%;">זיהויים בפועל</th>
         <th style="width: 10%;">תוצאה</th>
-      </tr>
+    </tr>
     </thead>
     <tbody>
       ${results.map(res => {
-        let rowClass = '';
+      let rowClass = '';
         if (res.passed) rowClass = 'pass';
         else rowClass = 'fail';
-        
-        return `
-        <tr class="${rowClass}">
+      
+      return `
+      <tr class="${rowClass}">
           <td>${res.text}</td>
           <td>${res.expected.map(p => `<span class="politician-tag">${escapeHtml(p)}</span>`).join('') || '<em>אין</em>'}</td>
           <td>${res.actual.map(p => `<span class="politician-tag">${escapeHtml(p)}</span>`).join('') || '<em>אין</em>'}</td>
           <td>${res.passed ? 'עבר' : 'נכשל'}</td>
-        </tr>
-        `;
-      }).join('')}
+      </tr>
+      `;
+    }).join('')}
     </tbody>
   </table>
 </body>
@@ -321,8 +321,8 @@ function escapeHtml(unsafe) {
        .replace(/>/g, "&gt;")
        .replace(/"/g, "&quot;")
        .replace(/'/g, "&#039;");
-}
-
+  }
+  
 // Helper to open file in browser
 function openFileInBrowser(filePath) {
   const openCommand = os.platform() === 'win32' ? 'start' : (os.platform() === 'darwin' ? 'open' : 'xdg-open');

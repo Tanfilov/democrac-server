@@ -27,7 +27,7 @@ const testCases = [
 
 async function runTestsAndGenerateReport() {
     console.log(`Loaded ${ALL_POLITICIANS.length} politicians for HTML report generation.`);
-    const results = [];
+  const results = [];
     for (const testCase of testCases) {
         const detected = findPoliticianMentions(testCase.text, ALL_POLITICIANS);
         results.push({
@@ -40,7 +40,7 @@ async function runTestsAndGenerateReport() {
     const reportPath = generateHtmlReport(results, ALL_POLITICIANS);
     openFileInBrowser(reportPath);
     console.log(`HTML report generated: ${reportPath}`);
-}
+    }
 
 function areArraysEqual(arr1, arr2) {
     if (!arr1 || !arr2) return false;
@@ -116,8 +116,8 @@ function openFileInBrowser(filePath) {
     exec(`${command} "${filePath}"`, (err) => {
         if (err) console.error(`Failed to open report: ${err.message}`);
     });
-}
-
+  }
+  
 if (require.main === module) {
     runTestsAndGenerateReport().catch(console.error);
 }

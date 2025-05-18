@@ -471,8 +471,8 @@ async function generateHtmlReport(articles, allPoliticians) {
   htmlContent += '    <h1>דוח זיהוי פוליטיקאים במאמרים אמיתיים (עם ID מסד נתונים)</h1>';
   htmlContent += '    <div class="stats-section">';
   htmlContent += '        <h2>סיכום כללי</h2>';
-  htmlContent += '        <p>סה"כ מאמרים שנדגמו ועובדו מול מסד הנתונים: ' + articles.length + '</p>';
-  htmlContent += '        <p>סה"כ פוליטיקאים ייחודיים שזוהו: ' + uniquePoliticiansCount + '</p>';
+  htmlContent += '        <p>סה"כ מאמרים עם פוליטיקאים שזוהו (ונכללו בדוח): ' + articles.length + '</p>';
+  htmlContent += '        <p>סה"כ פוליטיקאים ייחודיים שזוהו (במאמרים אלו): ' + uniquePoliticiansCount + '</p>';
   htmlContent += '        ' + politicianStats;
   htmlContent += '    </div>';
   htmlContent += '    <h2>פירוט מאמרים</h2>';
