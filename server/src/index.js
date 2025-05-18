@@ -447,6 +447,10 @@ const updatePoliticianMentions = async (articleId, detectedPoliticiansArray) => 
 
 // Scrape article content from URL
 const scrapeArticleContent = async (url) => {
+  if (!url || typeof url !== 'string' || !(url.startsWith('http://') || url.startsWith('https://'))) {
+    console.error(`Invalid or missing URL for scraping: ${url}`);
+    return ''; // Return empty content if URL is invalid
+  }
   try {
     const response = await axios.get(url, {
       headers: {
@@ -964,16 +968,30 @@ const processBatchForPoliticianDetection = async (articleIds, maxBatchSize = 5) 
             });
             
       // Enhanced politician detection
-      const detectedPoliticians = await enhancedPoliticianDetection(articleExists, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
-      console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticians.join(', ') || 'None'}`);
+      const rawDetectedPoliticians = await enhancedPoliticianDetection(articleExists, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
+
+      // Ensure rawDetectedPoliticians is an array. If not, treat as empty.
+      const ensuredArray = Array.isArray(rawDetectedPoliticians) ? rawDetectedPoliticians : [];
+
+      // Extract names, assuming items might be objects with a 'name' property, or strings directly.
+      // Filter out any nulls/undefined if p was not object with name or string
+      const detectedPoliticianNames = ensuredArray
+        .map(p => {
+          if (typeof p === 'string') return p;
+          if (typeof p === 'object' && p !== null && typeof p.name === 'string') return p.name;
+          return null; // Invalid item
+        })
+        .filter(name => name !== null && name.trim() !== '');
+
+      console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticianNames.length > 0 ? detectedPoliticianNames.join(', ') : 'None'}`);
       
       // Update mentions in database
-      const updatedCount = await updatePoliticianMentions(articleId, detectedPoliticians);
-              
-      if (updatedCount > 0 || detectedPoliticians.length === 0) {
+      const updatedCount = await updatePoliticianMentions(articleId, detectedPoliticianNames);
+      
+      if (updatedCount > 0 || detectedPoliticianNames.length === 0) {
         successCount++;
-      } else if (detectedPoliticians.length > 0 && updatedCount === 0) {
-        console.warn(`Warning: Detected ${detectedPoliticians.length} politicians for article ${articleId} but none were saved`);
+      } else if (detectedPoliticianNames.length > 0 && updatedCount === 0) {
+        console.warn(`Warning: Detected ${detectedPoliticianNames.length} politicians for article ${articleId} but none were saved`);
         failureCount++;
                     }
         } catch (error) {
@@ -1575,16 +1593,30 @@ const processPoliticianDetectionBatch = async (articleIds) => {
       });
       
       // Enhanced politician detection
-      const detectedPoliticians = await enhancedPoliticianDetection(articleExists, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
-      console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticians.join(', ') || 'None'}`);
+      const rawDetectedPoliticians = await enhancedPoliticianDetection(articleExists, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
+
+      // Ensure rawDetectedPoliticians is an array. If not, treat as empty.
+      const ensuredArray = Array.isArray(rawDetectedPoliticians) ? rawDetectedPoliticians : [];
+
+      // Extract names, assuming items might be objects with a 'name' property, or strings directly.
+      // Filter out any nulls/undefined if p was not object with name or string
+      const detectedPoliticianNames = ensuredArray
+        .map(p => {
+          if (typeof p === 'string') return p;
+          if (typeof p === 'object' && p !== null && typeof p.name === 'string') return p.name;
+          return null; // Invalid item
+        })
+        .filter(name => name !== null && name.trim() !== '');
+
+      console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticianNames.length > 0 ? detectedPoliticianNames.join(', ') : 'None'}`);
       
       // Update mentions in database
-      const updatedCount = await updatePoliticianMentions(articleId, detectedPoliticians);
+      const updatedCount = await updatePoliticianMentions(articleId, detectedPoliticianNames);
       
-      if (updatedCount > 0 || detectedPoliticians.length === 0) {
+      if (updatedCount > 0 || detectedPoliticianNames.length === 0) {
         successCount++;
-      } else if (detectedPoliticians.length > 0 && updatedCount === 0) {
-        console.warn(`Warning: Detected ${detectedPoliticians.length} politicians for article ${articleId} but none were saved`);
+      } else if (detectedPoliticianNames.length > 0 && updatedCount === 0) {
+        console.warn(`Warning: Detected ${detectedPoliticianNames.length} politicians for article ${articleId} but none were saved`);
         failureCount++;
       }
     } catch (error) {
