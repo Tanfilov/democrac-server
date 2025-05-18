@@ -102,31 +102,42 @@ function isNearOtherPoliticians(textWindow, currentPolitician, allPoliticians, b
 }
 
 function isExactMatch(text, word, boundaries, politician = null, allPoliticians = null) {
-  if (!text || !word || !boundaries) return false;
+  if (!text || !word || !boundaries) return { isMatch: false };
   
   const indexes = findAllOccurrences(text, word);
-  // let politicianNameForDebug = politician ? (politician.name || politician.he) : null; // Debugging line, can be removed or kept
 
   for (const index of indexes) {
     const beforeChar = index === 0 ? ' ' : text[index - 1];
     const afterChar = index + word.length >= text.length ? ' ' : text[index + word.length];
 
-    const isBoundaryBefore = index === 0 || boundaries.includes(beforeChar) || beforeChar === '\\n';
+    const isBoundaryBefore = index === 0 || boundaries.includes(beforeChar) || beforeChar === '\n';
     const isBoundaryAfter = (index + word.length) >= text.length || boundaries.includes(afterChar);
+
+    // --- REVERTED: Diagnostic logging for specific false positive investigation ---
+    // if (word.includes("רונן בר") || (politician && (politician.name === "רונן בר" || politician.he === "רונן בר"))) {
+    //   const contextSnippet = text.substring(Math.max(0, index - 20), Math.min(text.length, index + word.length + 20));
+    //   console.log(`[[isExactMatch DIAGNOSTIC]]
+    //     Word: '${word}'
+    //     Politician: ${politician ? (politician.name || politician.he) : 'N/A'}
+    //     Index: ${index}
+    //     BeforeChar: '${beforeChar}' (isBoundaryBefore: ${isBoundaryBefore})
+    //     AfterChar: '${afterChar}' (isBoundaryAfter: ${isBoundaryAfter})
+    //     Text Snippet: "...${contextSnippet}..."
+    //   `);
+    // }
+    // --- END: Diagnostic logging ---
     
     if (isBoundaryBefore && isBoundaryAfter) {
       if (politician && politician.requiresContext) {
         let contextMet = false;
-        // 1. Check specific contextIdentifiers if they exist and allPoliticians is available for the next step
         if (politician.contextIdentifiers && politician.contextIdentifiers.length > 0) {
           if (hasRequiredContext(text, politician, index, word.length)) {
             contextMet = true;
           }
         }
 
-        // 2. If not met by specific identifiers (and allPoliticians list is available), check for proximity to other politicians
-        if (!contextMet && allPoliticians) { // Ensure allPoliticians is available
-          const windowSize = 200; // Define context window size
+        if (!contextMet && allPoliticians) {
+          const windowSize = 200;
           const startContextWindow = Math.max(0, index - windowSize);
           const endContextWindow = Math.min(text.length, index + word.length + windowSize);
           const textWindowForContext = text.substring(startContextWindow, endContextWindow);
@@ -137,18 +148,17 @@ function isExactMatch(text, word, boundaries, politician = null, allPoliticians 
         }
 
         if (!contextMet) {
-          continue; // Context requirements not met, try next occurrence of 'word'
+          continue; 
         }
       }
-      return true; // Match found (either no context required, or context was met)
+      return { isMatch: true, index: index, term: word }; // Match found
     }
 
-    // Lenient check if inside quotes (existing logic)
     if (isInsideQuotes(text, index)) {
-      const isSpaceOrBoundaryBefore = beforeChar === ' ' || boundaries.includes(beforeChar) || beforeChar === '\\n';
+      const isSpaceOrBoundaryBefore = beforeChar === ' ' || boundaries.includes(beforeChar) || beforeChar === '\n';
       const isSpaceOrBoundaryAfter = afterChar === ' ' || boundaries.includes(afterChar);
       if (isSpaceOrBoundaryBefore && isSpaceOrBoundaryAfter) {
-        if (politician && politician.requiresContext) { // Repeat context check for quoted matches
+        if (politician && politician.requiresContext) { 
           let contextMetInQuotes = false;
           if (politician.contextIdentifiers && politician.contextIdentifiers.length > 0) {
             if (hasRequiredContext(text, politician, index, word.length)) {
@@ -168,11 +178,11 @@ function isExactMatch(text, word, boundaries, politician = null, allPoliticians 
             continue;
           }
         }
-        return true;
+        return { isMatch: true, index: index, term: word }; // Match found inside quotes
       }
     }
   }
-  return false;
+  return { isMatch: false }; // No match found
 }
 
 function isModifiedPosition(text, position) {
@@ -257,24 +267,35 @@ function findPoliticianMentions(text, POLITICIANS) {
   if (!text || !POLITICIANS || !Array.isArray(POLITICIANS)) return [];
 
   const _normalizedText = normalizeText(text);
-  const detectedPoliticians = new Set();
+  // const detectedPoliticians = new Set(); // Old: just names
+  const detailedMentions = []; // New: array of { name, term, context, matchIndex }
+  const foundPoliticianNames = new Set(); // To keep track of names already added to avoid duplicate name entries if we only want one context per name later
 
   POLITICIANS.forEach(politician => {
     const politicianName = politician.name || politician.he;
     if (!politicianName) return;
 
-    let detectedThisPolitician = false;
+    let detectedThisPoliticianThisPass = false;
 
     // 1. Check exact full name
     for (const prefix of HEBREW_PREFIXES) {
       const nameWithPrefix = prefix + politicianName;
-      if (isExactMatch(_normalizedText, nameWithPrefix, WORD_BOUNDARIES, politician, POLITICIANS)) {
-        detectedPoliticians.add(politicianName);
-        detectedThisPolitician = true;
-        break;
+      const matchResult = isExactMatch(_normalizedText, nameWithPrefix, WORD_BOUNDARIES, politician, POLITICIANS);
+      if (matchResult.isMatch) {
+        const contextSnippet = _normalizedText.substring(Math.max(0, matchResult.index - 30), Math.min(_normalizedText.length, matchResult.index + matchResult.term.length + 30));
+        detailedMentions.push({
+          name: politicianName,
+          term: matchResult.term,
+          context: `...${contextSnippet}...`,
+          matchIndex: matchResult.index,
+          reason: "exact full name"
+        });
+        foundPoliticianNames.add(politicianName);
+        detectedThisPoliticianThisPass = true;
+        break; 
       }
     }
-    if (detectedThisPolitician) return; // Already found by full name
+    if (detectedThisPoliticianThisPass) return; 
 
     // 2. Check aliases
     if (politician.aliases && politician.aliases.length > 0) {
@@ -282,22 +303,36 @@ function findPoliticianMentions(text, POLITICIANS) {
         if (alias.length < 2) continue;
         for (const prefix of HEBREW_PREFIXES) {
           const aliasWithPrefix = prefix + alias;
-          if (isExactMatch(_normalizedText, aliasWithPrefix, WORD_BOUNDARIES, politician, POLITICIANS)) {
-            detectedPoliticians.add(politicianName);
-            detectedThisPolitician = true;
+          const matchResult = isExactMatch(_normalizedText, aliasWithPrefix, WORD_BOUNDARIES, politician, POLITICIANS);
+          if (matchResult.isMatch) {
+            const contextSnippet = _normalizedText.substring(Math.max(0, matchResult.index - 30), Math.min(_normalizedText.length, matchResult.index + matchResult.term.length + 30));
+            detailedMentions.push({
+              name: politicianName, // Report the main politician name
+              term: matchResult.term, // The actual alias/term that matched
+              context: `...${contextSnippet}...`,
+              matchIndex: matchResult.index,
+              reason: "alias"
+            });
+            foundPoliticianNames.add(politicianName);
+            detectedThisPoliticianThisPass = true;
             break;
           }
         }
-        if (detectedThisPolitician) break;
+        if (detectedThisPoliticianThisPass) break;
       }
     }
   });
 
-  // 3. Position-based detection (from detection-fix.js)
+  // 3. Position-based detection (Simplified for now - needs to be adapted to return context)
+  // This part is more complex to adapt to also return precise context for the *name part* of a position match.
+  // For now, it won't add to detailedMentions with context, but it could still influence `foundPoliticianNames` if we want.
+  // Or, we can modify it to also return context.
   Object.entries(POSITION_MAP).forEach(([positionTerm, standardPosition]) => {
     for (const prefix of HEBREW_PREFIXES) {
       const posWithPrefix = prefix + positionTerm;
-      if (isExactMatch(_normalizedText, posWithPrefix, WORD_BOUNDARIES, null, null)) {
+      const positionMatchResult = isExactMatch(_normalizedText, posWithPrefix, WORD_BOUNDARIES, null, null); // Note: politician and allPoliticians are null here
+      
+      if (positionMatchResult.isMatch) {
         if (isModifiedPosition(_normalizedText, posWithPrefix)) {
           continue;
         }
@@ -306,29 +341,41 @@ function findPoliticianMentions(text, POLITICIANS) {
         );
 
         if (politiciansWithPosition.length > 0) {
-          const politician = politiciansWithPosition[0]; // Assuming first one is the current one
-          const politicianName = politician.name || politician.he;
-          if (!politicianName) continue;
+          const politician = politiciansWithPosition[0]; 
+          const currentPoliticianName = politician.name || politician.he;
+          if (!currentPoliticianName) continue;
 
-          const positionIndex = _normalizedText.indexOf(posWithPrefix);
-          const windowSize = 200;
-          const contextStart = Math.max(0, positionIndex - windowSize);
-          const contextEnd = Math.min(_normalizedText.length, positionIndex + posWithPrefix.length + windowSize);
-          const context = _normalizedText.substring(contextStart, contextEnd);
+          const positionIndex = positionMatchResult.index;
+          const windowSize = 200; // Context window for finding partial name
+          const contextAroundPosition = _normalizedText.substring(Math.max(0, positionIndex - windowSize), Math.min(_normalizedText.length, positionIndex + posWithPrefix.length + windowSize));
           
-          const nameParts = getPartialNameIndicators(politicianName);
-          const hasPartialNameIndicator = nameParts.some(part =>
-            context.includes(part) && isStandaloneWord(context, part)
-          );
-
-          if (hasPartialNameIndicator) {
-            detectedPoliticians.add(politicianName);
+          const nameParts = getPartialNameIndicators(currentPoliticianName);
+          for (const part of nameParts) {
+            // We need to find 'part' within 'contextAroundPosition' and get its index
+            const partMatchResult = isExactMatch(contextAroundPosition, part, WORD_BOUNDARIES, politician, POLITICIANS); // Pass politician for context checks if 'part' needs it
+            if (partMatchResult.isMatch && isStandaloneWord(contextAroundPosition, part)) {
+               // The context for the API should be around 'part' within 'contextAroundPosition'
+               const overallMatchIndex = Math.max(0, positionIndex - windowSize) + partMatchResult.index;
+               const contextSnippet = _normalizedText.substring(Math.max(0, overallMatchIndex - 30), Math.min(_normalizedText.length, overallMatchIndex + partMatchResult.term.length + 30));
+              
+              detailedMentions.push({
+                name: currentPoliticianName,
+                term: partMatchResult.term, // The partial name part that matched
+                context: `...${contextSnippet}...`,
+                matchIndex: overallMatchIndex,
+                reason: `position-based (${positionTerm} + ${part})`
+              });
+              foundPoliticianNames.add(currentPoliticianName);
+              break; // Found one partial name, assume it's this politician for this position mention
+            }
           }
         }
       }
     }
   });
-  return Array.from(detectedPoliticians);
+  // For now, `detailedMentions` can have multiple entries for the same politician if found via different terms/aliases or multiple times.
+  // `enhancedPoliticianDetection` will handle final selection/scoring.
+  return detailedMentions; 
 }
 
 // --- Relevance Scoring Helpers (Integrated from relevance-scoring.js) ---
@@ -478,7 +525,7 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
 
   // console.log(`[[DEBUG]] Combined and normalized _normalizedText for detection: ${_normalizedText.substring(0, 500)}`);
 
-  const allDetectedMentions = new Set();
+  const allDetectedMentionsWithDetails = [];
 
   // Split text into sentences (basic split by period, question mark, exclamation mark)
   // CORRECTED REGEX: Changed from /[.?!|פרסום ראשון:]+/ to /[.?!]+/ to preserve colons within sentences
@@ -500,142 +547,98 @@ async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleCo
   const russianFormerRegex = /бывшего\\s+([А-Яа-яЁё\\s]+)/g; // For Russian "former X"
 
   // Process title and description separately first for higher relevance
-  const titleMentions = findPoliticianMentions(title, POLITICIANS); // Now title is cleaned
-  titleMentions.forEach(p => allDetectedMentions.add(p));
+  const titleMentions = findPoliticianMentions(title, POLITICIANS);
+  titleMentions.forEach(mention => allDetectedMentionsWithDetails.push(mention));
 
-  const descriptionMentions = findPoliticianMentions(description, POLITICIANS); // Now description is cleaned
-  descriptionMentions.forEach(p => allDetectedMentions.add(p));
+  const descriptionMentions = findPoliticianMentions(description, POLITICIANS);
+  descriptionMentions.forEach(mention => allDetectedMentionsWithDetails.push(mention));
 
   // Process sentences
   for (const sentence of sentences) {
     let sentenceToProcess = sentence;
-    // Remove the __IMAGE_URL__ placeholder from the current sentence - This should be largely covered by upfront cleaning
-    // but kept for safety if sentence splitting re-introduces or if some part was missed.
     sentenceToProcess = sentenceToProcess.replace(/__IMAGE_URL__/g, ' ').trim();
-    // console.log(`[[DEBUG]] Processing sentence (URL placeholders removed): '${sentenceToProcess}'`);
 
+    // Apply regexes - These regexes currently don't feed into the detailed context system.
+    // This part might need more significant refactoring if regex-based matches also need full context snippets.
+    // For now, they might add names to a set, but not detailed context objects to allDetectedMentionsWithDetails.
+    // Or, we focus on findPoliticianMentions for the context feature primarily.
+    // Let's assume for now the main detailed contexts come from findPoliticianMentions calls.
 
-    // Apply regexes to find potential mentions within the sentence context
-    let match;
-
-    // Handle "Speaker: \"Quote\""
-    while ((match = colonRegex.exec(sentenceToProcess)) !== null) {
-      const textBeforeColon = sentenceToProcess.substring(0, match.index);
-      // console.log(`[[DEBUG]] ColonRegex: textBeforeColon = '${textBeforeColon}'`); 
-      // CORRECTED: Use allPoliticians parameter
-      const mentionsInSpeaker = findPoliticianMentions(textBeforeColon, POLITICIANS);
-      // console.log(`[[DEBUG]] ColonRegex: mentionsInSpeaker for '${textBeforeColon}' = ${JSON.stringify(mentionsInSpeaker)}`); 
-      mentionsInSpeaker.forEach(mention => {
-        if (!allDetectedMentions.has(mention)) {
-          allDetectedMentions.add(mention);
-        }
-      });
-      // Also process the quoted part
-      const textInQuotes = match[2]; // Content of the quote
-      if (textInQuotes) {
-        // console.log(`[[DEBUG]] ColonRegex: textInQuotes = '${textInQuotes}'`); 
-        // CORRECTED: Use allPoliticians parameter
-        const mentionsInQuoteText = findPoliticianMentions(textInQuotes, POLITICIANS, true); // pass true for isInsideQuotes
-        // console.log(`[[DEBUG]] ColonRegex: mentionsInQuoteText for '${textInQuotes}' = ${JSON.stringify(mentionsInQuoteText)}`); 
-        mentionsInQuoteText.forEach(mention => {
-            if (!allDetectedMentions.has(mention)) {
-                allDetectedMentions.add(mention);
-            }
-        });
-      }
-    }
-
-    // Handle "Quote" said X
-    while ((match = directQuoteRegex.exec(sentenceToProcess)) !== null) {
-      // match[1] is the quote, match[2] is the speaker
-      const speaker = match[2];
-      if (speaker) {
-        // CORRECTED: Use allPoliticians parameter
-        const speakerMentions = findPoliticianMentions(speaker, POLITICIANS);
-        speakerMentions.forEach(p => allDetectedMentions.add(p));
-      }
-      const inDirectQuotes = match[1];
-      if (inDirectQuotes) {
-        // CORRECTED: Use allPoliticians parameter
-        const quoteMentions = findPoliticianMentions(inDirectQuotes, POLITICIANS);
-        quoteMentions.forEach(p => allDetectedMentions.add(p));
-      }
-    }
-
-    // General pass on the sentence itself (or remaining parts if regexes modified it)
-    // CORRECTED: Use allPoliticians parameter
-    const sentenceMentions = findPoliticianMentions(sentenceToProcess, POLITICIANS);
-    sentenceMentions.forEach(p => allDetectedMentions.add(p));
+    const sentenceDetailedMentions = findPoliticianMentions(sentenceToProcess, POLITICIANS);
+    sentenceDetailedMentions.forEach(mention => allDetectedMentionsWithDetails.push(mention));
   }
 
-  // --- Relevance Scoring (Simplified - combines elements from relevance.js) ---
-  const scoredPoliticians = [];
-  const mentionDetails = {}; // politicianName: { count: 0, inTitle: false, inDescription: false, inContent: false, positions: [] }
+  // --- Relevance Scoring (Adjusted to handle detailed mentions) ---
+  const scoredPoliticiansOutput = []; // Will store { name, score, contexts: [{ term, context, matchIndex, reason }], details (from old mentionDetails) }
+  const mentionAggregates = {}; // politicianName: { score: 0, inTitle: false, ..., contexts: [] }
 
   // Initialize scoring structure
   POLITICIANS.forEach(p => {
     const name = p.name || p.he;
     if (name) {
-      mentionDetails[name] = { count: 0, inTitle: false, inDescription: false, inContent: false, positions: [] };
+      mentionAggregates[name] = { score: 0, contexts: [], inTitle: false, inDescription: false, inContentCount: 0 };
     }
   });
 
-  // Populate mention details from allDetectedMentions and original text parts
-  allDetectedMentions.forEach(politicianName => {
-    if (mentionDetails[politicianName]) {
-      // Count occurrences in title
-      if (title.includes(politicianName)) {
-          mentionDetails[politicianName].inTitle = true;
-          mentionDetails[politicianName].count += findAllOccurrences(title, politicianName).length * 3; // Higher weight for title
-      }
-      // Count occurrences in description
-      if (description.includes(politicianName)) {
-          mentionDetails[politicianName].inDescription = true;
-          mentionDetails[politicianName].count += findAllOccurrences(description, politicianName).length * 2; // Medium weight for description
-      }
-      // Count occurrences in main content (fullText)
-      if (fullText.includes(politicianName)) {
-          mentionDetails[politicianName].inContent = true;
-          mentionDetails[politicianName].count += findAllOccurrences(fullText, politicianName).length;
-      }
+  // Populate mention aggregates from allDetectedMentionsWithDetails
+  allDetectedMentionsWithDetails.forEach(mention => {
+    const { name, term, context, matchIndex, reason } = mention;
+    if (mentionAggregates[name]) {
+      mentionAggregates[name].contexts.push({ term, context, matchIndex, reason });
 
-      // Check aliases too for counts (simplified)
-      const politicianData = POLITICIANS.find(p => (p.name || p.he) === politicianName);
-      if (politicianData && politicianData.aliases) {
-        politicianData.aliases.forEach(alias => {
-          if (title.includes(alias)) mentionDetails[politicianName].count += findAllOccurrences(title, alias).length * 3;
-          if (description.includes(alias)) mentionDetails[politicianName].count += findAllOccurrences(description, alias).length * 2;
-          if (fullText.includes(alias)) mentionDetails[politicianName].count += findAllOccurrences(fullText, alias).length;
-        });
+      // Basic scoring based on where it was found (can be refined)
+      if (title.includes(term)) { // Check if the specific term is in the title
+        mentionAggregates[name].inTitle = true;
+        mentionAggregates[name].score += 3; 
       }
+      if (description.includes(term)) {
+        mentionAggregates[name].inDescription = true;
+        mentionAggregates[name].score += 2;
+      }
+      if (fullText.includes(term)) {
+        mentionAggregates[name].inContentCount += 1; // Could use count of occurrences
+        mentionAggregates[name].score += 1;
+      }
+      // Add more nuanced scoring based on 'reason' if needed
     } else {
-        // This case should ideally not happen if allDetectedMentions come from POLITICIANS list
-        // but as a safeguard:
-        mentionDetails[politicianName] = { count: 1, inTitle: title.includes(politicianName), inDescription: description.includes(politicianName), inContent: fullText.includes(politicianName), positions: [] };
+      // Should not happen if all mentions come from POLITICIANS list
+      mentionAggregates[name] = { score: 1, contexts: [{ term, context, matchIndex, reason }], inTitle: title.includes(term), inDescription: description.includes(term), inContentCount: fullText.includes(term) ? 1:0 };
     }
   });
   
-  // Convert to scored list
-  for (const name in mentionDetails) {
-    if (mentionDetails[name].count > 0) {
-      scoredPoliticians.push({ name, score: mentionDetails[name].count, details: mentionDetails[name] });
+  // Convert to scored list for output
+  for (const name in mentionAggregates) {
+    if (mentionAggregates[name].score > 0 || mentionAggregates[name].contexts.length > 0) {
+      scoredPoliticiansOutput.push({ 
+        name,
+        score: mentionAggregates[name].score,
+        // Keep all contexts for now. The API can decide to show one or all.
+        contexts: mentionAggregates[name].contexts.map(c => ({ term: c.term, context: c.context, index: c.matchIndex, source: c.reason })),
+        details: { // Keep some of the old aggregated details if useful
+            inTitle: mentionAggregates[name].inTitle,
+            inDescription: mentionAggregates[name].inDescription,
+            occurrencesInContent: mentionAggregates[name].inContentCount // Example
+        }
+      });
     }
   }
 
   // Sort by score
-  scoredPoliticians.sort((a, b) => b.score - a.score);
+  scoredPoliticiansOutput.sort((a, b) => b.score - a.score);
 
-  // Select top N politicians (e.g., top 5 or those above a score threshold)
-  const RELEVANT_POLITICIAN_THRESHOLD = 1; // Example: min score to be considered relevant
-  const MAX_RELEVANT_POLITICIANS = 7;    // Example: max number of relevant politicians
+  const RELEVANT_POLITICIAN_THRESHOLD = 1; 
+  const MAX_RELEVANT_POLITICIANS = 7;    
 
-  const relevantPoliticians = scoredPoliticians
+  // The final result is now the array of these rich objects, filtered and sliced.
+  const finalDetailedMentions = scoredPoliticiansOutput
     .filter(p => p.score >= RELEVANT_POLITICIAN_THRESHOLD)
-    .slice(0, MAX_RELEVANT_POLITICIANS)
-    .map(p => p.name);
+    .slice(0, MAX_RELEVANT_POLITICIANS);
 
-  // Return unique names
-  return [...new Set(relevantPoliticians)];
+  // Return unique names based on this final list, IF the old functions still expect only names.
+  // For the new API field, we return `finalDetailedMentions` directly.
+  // The original function returned: return [...new Set(relevantPoliticians)];
+  // Now it will return the richer objects:
+  return finalDetailedMentions;
 }
 
 

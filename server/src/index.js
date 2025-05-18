@@ -1695,7 +1695,7 @@ app.get('/api/news', (req, res) => {
       
       console.log('Count query:', countQuery);
       
-      db.get(countQuery, (err, countRow) => {
+      db.get(countQuery, [], (err, countRow) => { // Removed params from countQuery as it's not parameterized in this version
         if (err) {
           console.error('Count error:', err);
           console.error('Failed query:', countQuery);
@@ -1709,34 +1709,39 @@ app.get('/api/news', (req, res) => {
         
         // Format the response
         const formattedArticles = rows.map(row => {
-          // Generate a unique id property if needed
           const article = { ...row };
-          
-          // Deduplicate politician names 
-          let mentionedPoliticians = [];
+          let mentionedPoliticiansArray = [];
           
           if (row.mentionedPoliticians) {
-            // If it's already an array, use it
             if (Array.isArray(row.mentionedPoliticians)) {
-              mentionedPoliticians = [...new Set(row.mentionedPoliticians.filter(p => p && p.trim() !== ''))];
-            } 
-            // If it's a string (which is likely from GROUP_CONCAT), split it
-            else if (typeof row.mentionedPoliticians === 'string') {
-              mentionedPoliticians = [...new Set(row.mentionedPoliticians.split(',').filter(p => p && p.trim() !== ''))];
+              mentionedPoliticiansArray = [...new Set(row.mentionedPoliticians.filter(p => p && p.trim() !== ''))];
+            } else if (typeof row.mentionedPoliticians === 'string') {
+              mentionedPoliticiansArray = [...new Set(row.mentionedPoliticians.split(',').filter(p => p && p.trim() !== ''))];
             }
           }
           
-          // Ensure there are no duplicate articles with same ID
-          article.uuid = article.id ? `article-${article.id}` : `article-${uuidv4()}`;
+          article.uuid = article.id ? `article-${article.id}` : `article-${uuidv4()}`; // uuidv4 needs to be defined or imported
           
-          // Log for debugging
-          if (row.id && mentionedPoliticians.length > 0) {
-            console.log(`Article ${row.id} has politicians: ${JSON.stringify(mentionedPoliticians)}`);
+          const politicianMentionContext = mentionedPoliticiansArray.map(politicianName => {
+            const titleContext = extractContext(article.title, politicianName);
+            const descriptionContext = extractContext(article.description, politicianName);
+            const contentContext = extractContext(article.content, politicianName);
+            return {
+              politicianName,
+              titleContext,
+              descriptionContext,
+              contentContext
+            };
+          });
+
+          if (row.id && mentionedPoliticiansArray.length > 0) {
+            console.log(`Article ${row.id} has politicians: ${JSON.stringify(mentionedPoliticiansArray)}`);
           }
             
           return {
             ...article,
-            mentionedPoliticians
+            mentionedPoliticians: mentionedPoliticiansArray,
+            politicianMentionContext // New field
           };
         });
         
@@ -1992,13 +1997,17 @@ app.post('/api/fix-politician-detection/:id', async (req, res) => {
     });
     
     // Run enhanced politician detection
-    const detectedPoliticians = await enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
-    console.log(`Article ID ${articleId} - Detected politicians: ${detectedPoliticians.join(', ') || 'None'}`);
+    const detailedDetectionResult = await enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleContent, updateArticleContentInDbCallback);
+    console.log(`Article ID ${articleId} - Detailed detection result:`, JSON.stringify(detailedDetectionResult, null, 2)); // Log the detailed result for debugging
     
+    // Extract names for updating the database, ensuring uniqueness
+    const detectedPoliticianNames = [...new Set(detailedDetectionResult.map(p => p.name))];
+    console.log(`Article ID ${articleId} - Extracted unique names for DB: ${detectedPoliticianNames.join(', ') || 'None'}`);
+
     // Update mentions in database
-    await updatePoliticianMentions(articleId, detectedPoliticians);
+    await updatePoliticianMentions(articleId, detectedPoliticianNames);
     
-    // Verify the update
+    // Verify the update by fetching the names again
     const updatedMentions = await new Promise((resolve, reject) => {
       db.all('SELECT politicianName FROM politician_mentions WHERE articleId = ?', [articleId], (err, rows) => {
         if (err) {
@@ -2011,9 +2020,9 @@ app.post('/api/fix-politician-detection/:id', async (req, res) => {
     
     return res.json({
       message: `Politician detection fixed for article ${articleId}`,
-      before: article.mentionedPoliticians || [],
-      after: updatedMentions,
-      detectionResult: detectedPoliticians
+      before: article.mentionedPoliticians || [], 
+      after: updatedMentions, 
+      detectionResult: detailedDetectionResult // Send the full detailed result
     });
   } catch (error) {
     console.error(`Error fixing politician detection for article ${articleId}:`, error);
