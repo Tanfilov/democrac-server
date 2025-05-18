@@ -1,0 +1,34 @@
+[
+  {
+    "articleId": "example_article_1",
+    "articleTitleForReference": "נתניהו בישיבת הממשלה על יוקר המחיה",
+    "reportedIssues": [
+      {
+        "type": "missed",
+        "politicianName": "בנימין נתניהו",
+        "contextSnippet": "...רה\"מ בנימין נתניהו אמר היום...",
+        "detailsForMissed": "רה\"מ בנימין נתניהו",
+        "expectedBehavior": "Should have detected 'בנימין נתניהו'"
+      },
+      {
+        "type": "missed",
+        "politicianName": "יאיר לפיד",
+        "contextSnippet": "...יו\"ר האופוזיציה לפיד תקף את ההחלטה...",
+        "detailsForMissed": "לפיד",
+        "expectedBehavior": "Should have detected 'יאיר לפיד'"
+      }
+    ]
+  },
+  {
+    "articleId": "example_article_2",
+    "articleTitleForReference": "דיון סוער בכנסת בהשתתפות גוטליב",
+    "reportedIssues": [
+      {
+        "type": "false_positive",
+        "politicianName": "גדעון סער", 
+        "contextSnippet": "...הסערה שחוללה ח\"כ טלי גוטליב...",
+        "expectedBehavior": "Should NOT have detected 'גדעון סער' due to the word 'הסערה'"
+      }
+    ]
+  }
+] 

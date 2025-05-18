@@ -170,3 +170,5 @@ git push origin main
 - `POST /api/reset-politicians` - Reset politician mentions and reprocess
 
 For detailed documentation, see `api-endpoints.md` 
+
+Invoke-RestMethod -Uri "http://localhost:3000/api/refresh" -Method Post -Headers @{"x-admin-api-key"="YourSecretKeyHere123"} 
