@@ -30,13 +30,23 @@ try {
       ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`
       : '(invalid key)';
     console.log('GROQ_API_KEY first/last chars:', maskedKey);
+    console.log('GROQ_API_KEY length:', apiKey.length);
+    console.log('GROQ_API_KEY starts with gsk_:', apiKey.startsWith('gsk_'));
   }
   
   if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY !== 'YOUR_GROQ_API_KEY') {
+    try {
     groq = new Groq({
       apiKey: process.env.GROQ_API_KEY,
     });
     console.log('Groq client initialized successfully');
+    } catch (initError) {
+      console.error('Error initializing Groq client:', {
+        message: initError.message,
+        code: initError.code,
+        type: initError.type
+      });
+    }
   } else {
     console.warn('GROQ_API_KEY not set or using placeholder value. Summarization will be disabled.');
     console.log('Check environment variables: GROQ_API_KEY, AUTO_SUMMARIZE, ADMIN_API_KEY');
@@ -220,6 +230,10 @@ const POLITICIANS = loadPoliticians(politiciansPath);
 
 // Log the number of politicians loaded for debugging
 console.log(`Loaded ${POLITICIANS.length} politicians for detection`);
+
+// Log first 5 politicians ONCE at startup
+console.log('First 5 politicians:', POLITICIANS.slice(0, 5));
+console.log(`Total politicians loaded: ${POLITICIANS.length}`);
 
 // Callback function to update article content in the DB, to be passed to enhancedPoliticianDetection
 const updateArticleContentInDbCallback = async (articleId, content) => {
@@ -840,11 +854,11 @@ const insertArticle = async (article, mentions) => {
           console.error('Error starting transaction:', err);
           return reject(err);
         }
-        db.run(
+    db.run(
           `INSERT OR IGNORE INTO articles (title, description, content, link, imageUrl, source, publishedAt, guid, createdAt, summary, embedding)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [title, description, content, link, imageUrl, source, publishedAt, guid, new Date().toISOString(), summary, embedding ? JSON.stringify(embedding) : null],
-          function(err) {
+      function(err) {
             if (err) {
               console.error('Error inserting article:', err);
               db.run('ROLLBACK', () => reject(err));
@@ -976,8 +990,8 @@ const processBatchForPoliticianDetection = async (articleIds, maxBatchSize = 5) 
             });
             
       // Add debug logging for politicians and article data
-      console.log('First 5 politicians:', POLITICIANS.slice(0, 5));
-      console.log('Total politicians loaded:', POLITICIANS.length);
+      // console.log('First 5 politicians:', POLITICIANS.slice(0, 5));
+      // console.log('Total politicians loaded:', POLITICIANS.length);
       console.log('Article for detection:', {
         id: articleExists.id,
         title: articleExists.title,
@@ -1164,6 +1178,9 @@ const updateFeeds = async () => {
     let sourcesSkipped = 0;
     
     // Process each source sequentially to avoid overwhelming the system
+    let articlesWithPoliticians = 0; // Move this above the NEWS_SOURCES loop
+    
+    OUTER_LOOP:
     for (const source of NEWS_SOURCES) {
       try {
         // Fetch feed with our enhanced method
@@ -1185,9 +1202,31 @@ const updateFeeds = async () => {
         // Process each item in the feed
         for (const item of feed.items) {
           try {
-            const content = item.content || item.description || '';
+            // Get initial content from RSS
+            let content = item.content || item.description || '';
+
+            // Try to scrape the full article content
+            let scrapedContent = '';
+            try {
+              scrapedContent = await scrapeArticleContent(item.link);
+            } catch (err) {
+              console.error(`Error scraping content for ${item.link}:`, err.message);
+            }
+
+            if (scrapedContent && scrapedContent.length > 200) {
+              content = scrapedContent;
+              const scrapedTokens = Math.round(scrapedContent.length / 4);
+              console.log(`[Ingestion] Used scraped content for article: "${item.title}" (${scrapedTokens} tokens)`);
+            } else {
+              const rssTokens = Math.round(content.length / 4);
+              console.log(`[Ingestion] Used RSS content for article: "${item.title}" (${rssTokens} tokens)`);
+            }
+
             // Get a clean description
             const description = extractCleanDescription(item, source.name);
+            if (!description || description.trim() === '') {
+              console.warn(`[Ingestion Warning] Article with missing or empty description: id=${item.guid || item.link}, title="${item.title}"`);
+            }
             
             // Skip items with empty descriptions or descriptions with fewer than 10 words
             if (!description || description.trim() === '' || description.trim().split(/\s+/).length < 10) {
@@ -1209,6 +1248,13 @@ const updateFeeds = async () => {
             
             // Initial simple politician detection
             const detectedPoliticians = findPoliticianMentions(article.title + ' ' + article.description + ' ' + article.content, POLITICIANS);
+            if (detectedPoliticians.length > 0) {
+              articlesWithPoliticians++;
+            }
+            if (articlesWithPoliticians >= 20) {
+              console.log('Reached limit of 20 articles with politicians. Stopping ingestion.');
+              break OUTER_LOOP;
+            }
             
             // Only insert politicians that were detected
             const articleId = await insertArticle(article, detectedPoliticians);
@@ -1556,8 +1602,8 @@ const processPoliticianDetectionBatch = async (articleIds) => {
       });
       
       // Add debug logging for politicians and article data
-      console.log('First 5 politicians:', POLITICIANS.slice(0, 5));
-      console.log('Total politicians loaded:', POLITICIANS.length);
+      // console.log('First 5 politicians:', POLITICIANS.slice(0, 5));
+      // console.log('Total politicians loaded:', POLITICIANS.length);
       console.log('Article for detection:', {
         id: articleExists.id,
         title: articleExists.title,
@@ -2021,6 +2067,487 @@ async function getArticleEmbedding(text) {
     console.error('Error fetching embedding:', err);
     return null;
   }
+}
+
+// API endpoint to get key facts from random articles
+app.get('/api/random-articles-facts', async (req, res) => {
+  try {
+    // Debug logging for Groq client status
+    console.log('Groq client status:', {
+      initialized: !!groq,
+      apiKeyPresent: !!process.env.GROQ_API_KEY,
+      apiKeyFirstChars: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 4) : 'none'
+    });
+
+    if (!groq) {
+      console.error('Groq client not initialized. Check GROQ_API_KEY in .env file');
+      return res.status(500).json({ 
+        error: 'Groq client not initialized',
+        details: 'Please check if GROQ_API_KEY is properly set in .env file'
+      });
+    }
+
+    // Get 3 random articles from the database
+    const articles = await new Promise((resolve, reject) => {
+      db.all(`
+        SELECT id, title, description, content 
+        FROM articles 
+        WHERE content IS NOT NULL AND content != ''
+        ORDER BY RANDOM() 
+        LIMIT 3
+      `, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+
+    if (!articles || articles.length === 0) {
+      return res.status(404).json({ error: 'No articles found' });
+    }
+
+    // Process each article with Llama model via Groq
+    const results = await Promise.all(articles.map(async (article) => {
+      try {
+        console.log(`Processing article ${article.id} with Groq...`);
+        const completion = await groq.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content: "אתה עוזר שמחלץ עובדות מפתח ממאמרי חדשות בעברית.\n1. זהה עד 3 דמויות עיקריות (פוליטיקאים או דמויות ציבוריות) שהמאמר עוסק בהן או מזכיר אותן. עבור כל דמות, ציין רק את שמה המלא (גם אם זוהתה לפי כינוי או תפקיד).\n2. חלץ 4-5 עובדות עיקריות מהמאמר, ונסח כל עובדה מחדש במילים שלך (אל תצטט או תעתיק משפטים מהמאמר).\n3. עבור כל דמות שזוהתה, חלץ 1-2 עובדות מהמאמר שמסבירות מה עשתה, מה אמרה, במה ניסתה להשפיע, או כיצד הייתה מעורבת באירועים או בהחלטות המתוארים במאמר. אל תכלול מידע ביוגרפי, תפקידים, או עובדות רקע – רק עובדות על מעשים, אמירות, או מעורבות בהקשר של המאמר. אם אין עובדות כאלה, אל תכתוב כלום עבור אותה דמות.\nהצג את התשובה במבנה הבא:\n- דמויות עיקריות:\n1. ...\n2. ...\n- עובדות עיקריות:\n1. ...\n2. ...\n- עובדות על דמויות ציבוריות:\n1. ...\n2. ...\nהשתמש בעברית בלבד."
+            },
+            {
+              role: "user",
+              content: `כותרת: ${article.title}\n\nתיאור: ${article.description || ''}\n\nתוכן: ${article.content || ''}\n\nחלץ עובדות לפי ההוראות.`
+            }
+          ],
+          model: "meta-llama/llama-4-scout-17b-16e-instruct",
+          temperature: 0.3,
+          max_tokens: 900,
+          response_format: { type: "text" }
+        });
+
+        console.log(`Received response from Groq for article ${article.id}`);
+        const factsText = completion.choices[0].message.content;
+        console.log(`Raw facts text for article ${article.id}:`, factsText);
+
+        // Parse the three sections from the response
+        const mainFigures = [];
+        const keyFacts = {};
+        const personFacts = {};
+        // Match the three sections
+        const mainFiguresMatch = factsText.match(/דמויות עיקריות:\s*([\s\S]*?)(?:- עובדות עיקריות:|$)/);
+        const mainFactsMatch = factsText.match(/- עובדות עיקריות:\s*([\s\S]*?)(?:- עובדות על דמויות ציבוריות:|$)/);
+        const personFactsMatch = factsText.match(/- עובדות על דמויות ציבוריות:\s*([\s\S]*)/);
+        // Extract and split main figures
+        if (mainFiguresMatch && mainFiguresMatch[1]) {
+          const mainFiguresArr = mainFiguresMatch[1]
+            .split(/\n+/)
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(line => line.length > 0)
+            .slice(0, 3);
+          mainFigures.push(...mainFiguresArr);
+        }
+        // Extract and split main facts
+        if (mainFactsMatch && mainFactsMatch[1]) {
+          const mainFactsArr = mainFactsMatch[1]
+            .split(/\n+/)
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(line => line.length > 0)
+            .slice(0, 5);
+          mainFactsArr.forEach((fact, idx) => {
+            keyFacts[`keyFact${idx + 1}`] = fact;
+          });
+        }
+        // Extract and split person facts
+        if (personFactsMatch && personFactsMatch[1]) {
+          const personFactsArr = personFactsMatch[1]
+            .split(/\n+/)
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(line => line.length > 0)
+            .slice(0, 6); // up to 2 facts per up to 3 people
+          personFactsArr.forEach((fact, idx) => {
+            personFacts[`personFact${idx + 1}`] = fact;
+          });
+        }
+
+        return {
+          id: article.id,
+          title: article.title,
+          description: article.description,
+          mainFigures,
+          keyFacts,
+          personFacts
+        };
+      } catch (error) {
+        console.error(`Error processing article ${article.id}:`, {
+          error: error.message,
+          stack: error.stack,
+          article: {
+            id: article.id,
+            title: article.title,
+            contentLength: article.content?.length
+          }
+        });
+        return {
+          id: article.id,
+          title: article.title,
+          description: article.description,
+          error: `Failed to extract key facts: ${error.message}`
+        };
+      }
+    }));
+
+    res.json({ articles: results });
+  } catch (error) {
+    console.error('Error in random-articles-facts endpoint:', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+// API endpoint to get key facts from specific articles by IDs
+app.post('/api/articles-facts', async (req, res) => {
+  try {
+    const ids = req.body.ids;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'Please provide an array of article IDs in the "ids" field.' });
+    }
+
+    // Debug logging for Groq client status
+    console.log('Groq client status:', {
+      initialized: !!groq,
+      apiKeyPresent: !!process.env.GROQ_API_KEY,
+      apiKeyFirstChars: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 4) : 'none'
+    });
+
+    if (!groq) {
+      console.error('Groq client not initialized. Check GROQ_API_KEY in .env file');
+      return res.status(500).json({ 
+        error: 'Groq client not initialized',
+        details: 'Please check if GROQ_API_KEY is properly set in .env file'
+      });
+    }
+
+    // Get the requested articles from the database
+    const placeholders = ids.map(() => '?').join(',');
+    const articles = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, title, description, content 
+         FROM articles 
+         WHERE id IN (${placeholders}) 
+         AND content IS NOT NULL AND content != ''`,
+        ids,
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+
+    if (!articles || articles.length === 0) {
+      return res.status(404).json({ error: 'No articles found for the provided IDs' });
+    }
+
+    // Process each article with Llama model via Groq
+    const results = await Promise.all(articles.map(async (article) => {
+      try {
+        console.log(`Processing article ${article.id} with Groq...`);
+        const completion = await groq.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content: "אתה עוזר שמחלץ עובדות מפתח ממאמרי חדשות בעברית.\n1. זהה עד 3 דמויות עיקריות (פוליטיקאים או דמויות ציבוריות) שהמאמר עוסק בהן או מזכיר אותן. עבור כל דמות, ציין רק את שמה המלא (גם אם זוהתה לפי כינוי או תפקיד).\n2. חלץ 4-5 עובדות עיקריות מהמאמר, ונסח כל עובדה מחדש במילים שלך (אל תצטט או תעתיק משפטים מהמאמר).\n3. עבור כל דמות שזוהתה, חלץ 1-2 עובדות מהמאמר שמסבירות מה עשתה, מה אמרה, במה ניסתה להשפיע, או כיצד הייתה מעורבת באירועים או בהחלטות המתוארים במאמר. אל תכלול מידע ביוגרפי, תפקידים, או עובדות רקע – רק עובדות על מעשים, אמירות, או מעורבות בהקשר של המאמר. אם אין עובדות כאלה, אל תכתוב כלום עבור אותה דמות.\nהצג את התשובה במבנה הבא:\n- דמויות עיקריות:\n1. ...\n2. ...\n- עובדות עיקריות:\n1. ...\n2. ...\n- עובדות על דמויות ציבוריות:\n1. ...\n2. ...\nהשתמש בעברית בלבד."
+            },
+            {
+              role: "user",
+              content: `כותרת: ${article.title}\n\nתיאור: ${article.description || ''}\n\nתוכן: ${article.content || ''}\n\nחלץ עובדות לפי ההוראות.`
+            }
+          ],
+          model: "meta-llama/llama-4-scout-17b-16e-instruct",
+          temperature: 0.3,
+          max_tokens: 900,
+          response_format: { type: "text" }
+        });
+
+        console.log(`Received response from Groq for article ${article.id}`);
+        const factsText = completion.choices[0].message.content;
+        console.log(`Raw facts text for article ${article.id}:`, factsText);
+
+        // Parse the three sections from the response
+        const mainFigures = [];
+        const keyFacts = {};
+        const personFacts = {};
+        // Match the three sections
+        const mainFiguresMatch = factsText.match(/דמויות עיקריות:\s*([\s\S]*?)(?:- עובדות עיקריות:|$)/);
+        const mainFactsMatch = factsText.match(/- עובדות עיקריות:\s*([\s\S]*?)(?:- עובדות על דמויות ציבוריות:|$)/);
+        const personFactsMatch = factsText.match(/- עובדות על דמויות ציבוריות:\s*([\s\S]*)/);
+        // Extract and split main figures
+        if (mainFiguresMatch && mainFiguresMatch[1]) {
+          const mainFiguresArr = mainFiguresMatch[1]
+            .split(/\n+/)
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(line => line.length > 0)
+            .slice(0, 3);
+          mainFigures.push(...mainFiguresArr);
+        }
+        // Extract and split main facts
+        if (mainFactsMatch && mainFactsMatch[1]) {
+          const mainFactsArr = mainFactsMatch[1]
+            .split(/\n+/)
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(line => line.length > 0)
+            .slice(0, 5);
+          mainFactsArr.forEach((fact, idx) => {
+            keyFacts[`keyFact${idx + 1}`] = fact;
+          });
+        }
+        // Extract and split person facts
+        if (personFactsMatch && personFactsMatch[1]) {
+          const personFactsArr = personFactsMatch[1]
+            .split(/\n+/)
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(line => line.length > 0)
+            .slice(0, 6); // up to 2 facts per up to 3 people
+          personFactsArr.forEach((fact, idx) => {
+            personFacts[`personFact${idx + 1}`] = fact;
+          });
+        }
+
+        return {
+          id: article.id,
+          title: article.title,
+          description: article.description,
+          mainFigures,
+          keyFacts,
+          personFacts
+        };
+      } catch (error) {
+        console.error(`Error processing article ${article.id}:`, {
+          error: error.message,
+          stack: error.stack,
+          article: {
+            id: article.id,
+            title: article.title,
+            contentLength: article.content?.length
+          }
+        });
+        return {
+          id: article.id,
+          title: article.title,
+          description: article.description,
+          error: `Failed to extract key facts: ${error.message}`
+        };
+      }
+    }));
+
+    res.json({ articles: results });
+  } catch (error) {
+    console.error('Error in articles-facts endpoint:', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+// GET endpoint to get key facts from specific articles by IDs via query parameter
+app.get('/api/articles-facts', async (req, res) => {
+  try {
+    const idsParam = req.query.ids;
+    if (!idsParam) {
+      return res.status(400).json({ error: 'Please provide article IDs as a comma-separated list in the "ids" query parameter.' });
+    }
+    const ids = idsParam.split(',').map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'No valid article IDs provided.' });
+    }
+
+    // Debug logging for Groq client status
+    console.log('Groq client status:', {
+      initialized: !!groq,
+      apiKeyPresent: !!process.env.GROQ_API_KEY,
+      apiKeyFirstChars: process.env.GROQ_API_KEY ? process.env.GROQ_API_KEY.substring(0, 4) : 'none'
+    });
+
+    if (!groq) {
+      console.error('Groq client not initialized. Check GROQ_API_KEY in .env file');
+      return res.status(500).json({ 
+        error: 'Groq client not initialized',
+        details: 'Please check if GROQ_API_KEY is properly set in .env file'
+      });
+    }
+
+    // Get the requested articles from the database
+    const placeholders = ids.map(() => '?').join(',');
+    const articles = await new Promise((resolve, reject) => {
+      db.all(
+        `SELECT id, title, description, content 
+         FROM articles 
+         WHERE id IN (${placeholders}) 
+         AND content IS NOT NULL AND content != ''`,
+        ids,
+        (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        }
+      );
+    });
+
+    if (!articles || articles.length === 0) {
+      return res.status(404).json({ error: 'No articles found for the provided IDs' });
+    }
+
+    // Process each article with Llama model via Groq
+    const results = await Promise.all(articles.map(async (article) => {
+      try {
+        console.log(`Processing article ${article.id} with Groq...`);
+        const completion = await groq.chat.completions.create({
+          messages: [
+            {
+              role: "system",
+              content: "אתה עוזר שמחלץ עובדות מפתח ממאמרי חדשות בעברית.\n1. זהה עד 3 דמויות עיקריות (פוליטיקאים או דמויות ציבוריות) שהמאמר עוסק בהן או מזכיר אותן. עבור כל דמות, ציין רק את שמה המלא (גם אם זוהתה לפי כינוי או תפקיד).\n2. חלץ 4-5 עובדות עיקריות מהמאמר, ונסח כל עובדה מחדש במילים שלך (אל תצטט או תעתיק משפטים מהמאמר).\n3. עבור כל דמות שזוהתה, חלץ 1-2 עובדות מהמאמר שמסבירות מה עשתה, מה אמרה, במה ניסתה להשפיע, או כיצד הייתה מעורבת באירועים או בהחלטות המתוארים במאמר. אל תכלול מידע ביוגרפי, תפקידים, או עובדות רקע – רק עובדות על מעשים, אמירות, או מעורבות בהקשר של המאמר. אם אין עובדות כאלה, אל תכתוב כלום עבור אותה דמות.\nהצג את התשובה במבנה הבא:\n- דמויות עיקריות:\n1. ...\n2. ...\n- עובדות עיקריות:\n1. ...\n2. ...\n- עובדות על דמויות ציבוריות:\n1. ...\n2. ...\nהשתמש בעברית בלבד. אם אין דמויות ציבוריות רלוונטיות, כתוב: \"אין דמויות ציבוריות רלוונטיות\"."
+            },
+            {
+              role: "user",
+              content: `כותרת: ${article.title}\n\nתיאור: ${article.description || ''}\n\nתוכן: ${article.content || ''}\n\nחלץ עובדות לפי ההוראות.`
+            }
+          ],
+          model: "meta-llama/llama-4-scout-17b-16e-instruct",
+          temperature: 0.3,
+          max_tokens: 900,
+          response_format: { type: "text" }
+        });
+
+        console.log(`Received response from Groq for article ${article.id}`);
+        const factsText = completion.choices[0].message.content;
+        console.log(`Raw facts text for article ${article.id}:`, factsText);
+
+        // Parse the three sections from the response
+        const mainFigures = [];
+        const keyFacts = {};
+        const personFacts = {};
+        // Match the three sections
+        const mainFiguresMatch = factsText.match(/דמויות עיקריות:\s*([\s\S]*?)(?:- עובדות עיקריות:|$)/);
+        const mainFactsMatch = factsText.match(/- עובדות עיקריות:\s*([\s\S]*?)(?:- עובדות על דמויות ציבוריות:|$)/);
+        const personFactsMatch = factsText.match(/- עובדות על דמויות ציבוריות:\s*([\s\S]*)/);
+        // Extract and split main figures
+        if (mainFiguresMatch && mainFiguresMatch[1]) {
+          const mainFiguresArr = mainFiguresMatch[1]
+            .split(/\n+/)
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(line => line.length > 0 && line !== 'אין דמויות ציבוריות רלוונטיות')
+            .slice(0, 3);
+          mainFigures.push(...mainFiguresArr);
+        }
+        // Extract and split main facts
+        if (mainFactsMatch && mainFactsMatch[1]) {
+          const mainFactsArr = mainFactsMatch[1]
+            .split(/\n+/)
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(line => line.length > 0)
+            .slice(0, 5);
+          mainFactsArr.forEach((fact, idx) => {
+            keyFacts[`keyFact${idx + 1}`] = fact;
+          });
+        }
+        // Extract and split person facts
+        if (personFactsMatch && personFactsMatch[1]) {
+          const personFactsArr = personFactsMatch[1]
+            .split(/\n+/)
+            .map(line => line.replace(/^\d+\.\s*/, '').trim())
+            .filter(line => line.length > 0 && line !== 'אין דמויות ציבוריות רלוונטיות')
+            .slice(0, 6); // up to 2 facts per up to 3 people
+          personFactsArr.forEach((fact, idx) => {
+            personFacts[`personFact${idx + 1}`] = fact;
+          });
+        }
+
+        return {
+          id: article.id,
+          title: article.title,
+          description: article.description,
+          mainFigures,
+          keyFacts,
+          personFacts
+        };
+      } catch (error) {
+        console.error(`Error processing article ${article.id}:`, {
+          error: error.message,
+          stack: error.stack,
+          article: {
+            id: article.id,
+            title: article.title,
+            contentLength: article.content?.length
+          }
+        });
+        return {
+          id: article.id,
+          title: article.title,
+          description: article.description,
+          error: `Failed to extract key facts: ${error.message}`
+        };
+      }
+    }));
+
+    res.json({ articles: results });
+  } catch (error) {
+    console.error('Error in articles-facts GET endpoint:', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
+// Utility to get detected persons based on both mechanisms and business rules
+function getDetectedPersons(detectedByOurLogic, mainFigures, personFacts, POLITICIANS) {
+  // 1. Filter LLM and our logic to only those in politicians.json
+  const filteredMainFigures = mainFigures.filter(name => POLITICIANS.includes(name));
+  const filteredTitle = (detectedByOurLogic.title || []).filter(name => POLITICIANS.includes(name));
+  const filteredDescription = (detectedByOurLogic.description || []).filter(name => POLITICIANS.includes(name));
+  const filteredContent = (detectedByOurLogic.content || []).filter(name => POLITICIANS.includes(name));
+
+  // 2. Intersection: in both mechanisms
+  const inBoth = filteredMainFigures.filter(name =>
+    filteredTitle.includes(name) ||
+    filteredDescription.includes(name) ||
+    filteredContent.includes(name)
+  );
+
+  // 3. Only in LLM (with personFact)
+  const onlyInLLM = filteredMainFigures.filter(name =>
+    !filteredTitle.includes(name) &&
+    !filteredDescription.includes(name) &&
+    !filteredContent.includes(name)
+  ).filter(name =>
+    Object.values(personFacts).some(fact => fact.includes(name))
+  );
+
+  // 4. Only in our logic (title/description)
+  const onlyInOurLogic = [
+    ...filteredTitle,
+    ...filteredDescription
+  ].filter(name => !filteredMainFigures.includes(name));
+
+  // 5. Final detected persons
+  const detectedPersons = Array.from(new Set([
+    ...inBoth,
+    ...onlyInLLM,
+    ...onlyInOurLogic
+  ]));
+
+  return detectedPersons;
 }
 
 // Start the server

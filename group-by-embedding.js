@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const cosineSimilarity = require('compute-cosine-similarity');
 
 // Config
-const SIMILARITY_THRESHOLD = 0.75; // Adjust as needed (1.0 = identical, 0.8 = looser)
+const SIMILARITY_THRESHOLD = 0.70 // Adjust as needed (1.0 = identical, 0.8 = looser)
 
 // Load all articles with embeddings
 const db = new sqlite3.Database('./server/data/news.db');

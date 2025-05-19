@@ -395,8 +395,7 @@ function findPoliticianMentions(text, politicians) {
  */
 async function enhancedPoliticianDetection(article, POLITICIANS, scrapeArticleContent, updateArticleContent) {
   try {
-    // Debug logging: print first 5 politicians and article data
-    console.log('[Detection Debug] First 5 politicians:', POLITICIANS.slice(0, 5));
+    // Debug logging: print total politicians loaded and article data
     console.log('[Detection Debug] Total politicians loaded:', POLITICIANS.length);
     console.log('[Detection Debug] Article for detection:', {
       id: article && article.id,
